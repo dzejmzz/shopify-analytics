@@ -1,16 +1,14 @@
-import BudgetAnalysisTable from '../../components/BudgetAnalysisTable';
-import NavBar from '../../components/NavBar';
+"use client";
+import React from "react";
+import BudgetAnalysisTable from "../../components/BudgetAnalysisTable";
 
 export default function BudgetAnalysisPage() {
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <NavBar />
-      <div className="max-w-screen-lg mx-auto">
-        <div className="pl-8 md:pl-8">
-          <h1 className="text-3xl font-bold mb-6 text-black">Budget Tracker</h1>
-        </div>
+    <div className="w-full flex flex-col items-center justify-center">
+      <div className="glass rounded-2xl p-6 w-full max-w-5xl mt-8">
+        <h2 className="text-2xl font-bold mb-4">Budget Analysis</h2>
         <BudgetAnalysisTable />
       </div>
-    </main>
+    </div>
   );
 } 
