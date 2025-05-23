@@ -1,0 +1,13 @@
+.editable-cell {
+  background-color: #fafaf9; /* Tailwind bg-gray-50 */
+  border: 1px solid #e5e7eb; /* Tailwind border-gray-200 */
+  border-radius: 0.375rem;
+  transition: background 0.2s, border 0.2s;
+  color: #000; /* Ensure text is black */
+  font-weight: bold;
+  text-decoration: underline;
+}
+.editable-cell:hover, .editable-cell:focus-within {
+  background-color: #fefce8; /* Tailwind bg-yellow-50 */
+  border-color: #fde68a; /* Tailwind border-yellow-300 */
+} 
