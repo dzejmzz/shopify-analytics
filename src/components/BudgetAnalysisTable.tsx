@@ -431,3 +431,4 @@ function EditableDailySetBudgetCell({ app, value, onChange }: { app: string, val
     <span className="cursor-pointer text-black font-bold underline" onClick={() => setEditing(true)}>{formatMoney(value)}</span>
   );
 }
+ 

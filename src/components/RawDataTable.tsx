@@ -178,6 +178,8 @@ export default function RawDataTable() {
     const adName = (row["Ad Name"] || "").toLowerCase();
     return adName && !adName.includes("total");
   });
+  // Filter by selected apps for totals
+  filteredRows = filteredRows.filter(row => selectedApps.includes(row["App Name"]));
   // Sort by App Name, then Ad Name to ensure grouping is correct
   filteredRows.sort((a, b) => {
     const appA = (a["App Name"] || "").toLowerCase();
