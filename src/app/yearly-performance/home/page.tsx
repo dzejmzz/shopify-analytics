@@ -1,46 +1,32 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import {
-  HomeIcon,
-  ChartBarIcon,
-  CalendarIcon,
-  MagnifyingGlassIcon,
-  Squares2X2Icon
-} from '@heroicons/react/24/outline';
-import Link from 'next/link';
-import { format, parse } from 'date-fns';
+import React, { useEffect, useState } from "react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { DateRange } from 'react-date-range';
+import { format, parse, parseISO } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
-import { fetchYearlyRaw } from '../utils/yearlyraw';
-import type { YearlyRawRow } from '../utils/yearlyraw';
+import { fetchYearlyRaw } from '../../../utils/yearlyraw';
+import type { YearlyRawRow } from '../../../utils/yearlyraw';
+import Link from 'next/link';
+import { HomeIcon } from '@heroicons/react/24/outline';
 
 const ALL_METRICS = [
-  { key: "impressions", label: "Impressions", format: "NUMBER" },
-  { key: "clicks", label: "Clicks", format: "NUMBER" },
+  { key: "impressions", csvKey: "Imps", label: "Impressions", format: "NUMBER" },
+  { key: "clicks", csvKey: "Clicks", label: "Clicks", format: "NUMBER" },
+  { key: "installs", csvKey: "Installs", label: "Installs", format: "NUMBER" },
+  { key: "customers", csvKey: "Customers", label: "Customers", format: "NUMBER" },
+  { key: "revenue", csvKey: "Revenue", label: "Revenue", format: "USD" },
+  { key: "spend", csvKey: "Spend", label: "Spend", format: "USD" },
   { key: "ctr", label: "CTR", format: "PERCENTAGE" },
-  { key: "installs", label: "Installs", format: "NUMBER" },
   { key: "install_rate", label: "Install Rate", format: "PERCENTAGE" },
-  { key: "customers", label: "Customers", format: "NUMBER" },
   { key: "conversion_rate", label: "Conversion Rate", format: "PERCENTAGE" },
-  { key: "revenue", label: "Revenue", format: "USD" },
-  { key: "spend", label: "Spend", format: "USD" },
   { key: "profit", label: "Profit", format: "USD" },
   { key: "roas", label: "ROAS", format: "PERCENTAGE" },
   { key: "cpc", label: "CPC", format: "USD" },
   { key: "cpi", label: "CPI", format: "USD" },
   { key: "cpa", label: "CPA", format: "USD" },
 ];
-
 const DEFAULT_METRICS = ["installs", "install_rate", "cpi", "spend"];
-
-const sidebarItems = [
-  { name: "Overview", icon: HomeIcon, href: "/" },
-  { name: "Pacing", icon: ChartBarIcon, href: "/pacing/overview" },
-  { name: "Yearly Performance", icon: CalendarIcon, href: "/yearly-performance/overview" },
-  { name: "Search Term Report", icon: MagnifyingGlassIcon, href: "/search-term-report" },
-  { name: "Splits", icon: Squares2X2Icon, href: "/splits" },
-];
 
 function cleanNumber(val: any) {
   if (typeof val !== 'string' && typeof val !== 'number') return 0;
@@ -56,69 +42,102 @@ function computeTotalRatio(rows: any[], numeratorKey: string, denominatorKey: st
   return denominator ? numerator / denominator : 0;
 }
 
-export default function Home() {
-  const [rawRows, setRawRows] = useState<YearlyRawRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [allMonths, setAllMonths] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(DEFAULT_METRICS);
-  const [selectedApp, setSelectedApp] = useState<string>('All Apps');
-  const [showMetricsDropdown, setShowMetricsDropdown] = useState(false);
-  const [showAppDropdown, setShowAppDropdown] = useState(false);
-  const [pendingMetrics, setPendingMetrics] = useState<string[]>(selectedMetrics);
-  const [pendingApp, setPendingApp] = useState<string>(selectedApp);
-  const [activeGraphMetrics, setActiveGraphMetrics] = useState<string[]>(DEFAULT_METRICS);
+export default function YearlyPerformanceHome() {
+  const [rawRows, setRawRows] = React.useState<YearlyRawRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [allDates, setAllDates] = React.useState<string[]>([]);
+  const [dateRange, setDateRange] = React.useState({ start: '', end: '' });
+  const [selectedMetrics, setSelectedMetrics] = React.useState<string[]>(DEFAULT_METRICS);
+  const [selectedApp, setSelectedApp] = React.useState<string>('All Apps');
+  const [showMetricsDropdown, setShowMetricsDropdown] = React.useState(false);
+  const [showAppDropdown, setShowAppDropdown] = React.useState(false);
+  const [showDateDropdown, setShowDateDropdown] = React.useState(false);
+  const [pendingMetrics, setPendingMetrics] = React.useState<string[]>(selectedMetrics);
+  const [pendingApp, setPendingApp] = React.useState<string>(selectedApp);
+  const [activeGraphMetrics, setActiveGraphMetrics] = React.useState<string[]>(DEFAULT_METRICS);
 
-  const metricsDropdownRef = useRef<HTMLDivElement>(null);
-  const appDropdownRef = useRef<HTMLDivElement>(null);
+  const metricsDropdownRef = React.useRef<HTMLDivElement>(null);
+  const appDropdownRef = React.useRef<HTMLDivElement>(null);
+  const dateDropdownRef = React.useRef<HTMLDivElement>(null);
 
-  // Extract app names from data
   const appNames = React.useMemo(() => {
-    const names = Array.from(new Set(rawRows.map(row => String(row["App Name"])).filter(Boolean)));
+    const names = Array.from(new Set(rawRows.map(row => String(row["App Name"])))).filter(Boolean);
     return ['All Apps', ...names];
   }, [rawRows]);
 
-  useEffect(() => {
-    fetchYearlyRaw().then((data: YearlyRawRow[]) => {
-      setRawRows(data);
-      const months = Array.from(new Set(data.map(row => String(row["Month"])).filter(Boolean))).sort();
-      setAllMonths(months);
-      if (months.length > 0) {
-        setDateRange({ start: months[0], end: months[months.length - 1] });
-      }
-      setLoading(false);
-    }).catch(() => setError('Failed to fetch data'));
-  }, []);
+  const allMonths = React.useMemo(() => {
+    return Array.from(new Set(rawRows.map(row => String(row["Month"])).filter(Boolean))).sort();
+  }, [rawRows]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (allMonths.length > 0 && (!dateRange.start || !dateRange.end)) {
       setDateRange({ start: allMonths[0], end: allMonths[allMonths.length - 1] });
     }
   }, [allMonths]);
+
+  React.useEffect(() => {
+    fetchYearlyRaw().then((data: YearlyRawRow[]) => {
+      setRawRows(data);
+      setLoading(false);
+    }).catch(() => setError('Failed to fetch data'));
+  }, []);
 
   if (loading) return <div className="p-8 text-lg">Loading...</div>;
   if (error) return <div className="p-8 text-red-600">{error}</div>;
   if (!rawRows.length) return <div className="p-8 text-gray-600">No data found.</div>;
   if (!dateRange.start || !dateRange.end) return <div className="p-8 text-gray-600">No months available.</div>;
 
-  // Month picker logic
-  function handleMonthRangeChange(e: React.ChangeEvent<HTMLSelectElement>, which: 'start' | 'end') {
-    const value = e.target.value;
-    if (which === 'start') {
-      setDateRange(r => ({ ...r, start: value }));
-    } else {
-      setDateRange(r => ({ ...r, end: value }));
+  const range = [{
+    startDate: parse(dateRange.start, 'yyyy-MM-dd', new Date()),
+    endDate: parse(dateRange.end, 'yyyy-MM-dd', new Date()),
+    key: 'selection',
+  }];
+
+  function handleDateRangeChange(ranges: any) {
+    setDateRange({
+      start: format(ranges.selection.startDate, 'yyyy-MM-dd'),
+      end: format(ranges.selection.endDate, 'yyyy-MM-dd'),
+    });
+    setShowDateDropdown(false);
+  }
+
+  function toggleMetric(metric: string) {
+    if (pendingMetrics.includes(metric)) {
+      setPendingMetrics(pendingMetrics.filter(m => m !== metric));
+    } else if (pendingMetrics.length < 4) {
+      setPendingMetrics([...pendingMetrics, metric]);
     }
   }
 
-  // Format month as 'January 2025'
-  function formatMonth(monthStr: string) {
-    const d = parse(monthStr, 'yyyy-MM-dd', new Date());
-    return format(d, 'MMMM yyyy');
+  function handleMetricSave() {
+    setSelectedMetrics(pendingMetrics);
+    setActiveGraphMetrics(activeGraphMetrics.filter(m => pendingMetrics.includes(m)).slice(0, 4));
+    setShowMetricsDropdown(false);
   }
 
-  // Filtering and metric calculation
+  function handleAppSave() {
+    setSelectedApp(pendingApp);
+    setShowAppDropdown(false);
+  }
+
+  function toggleGraphMetric(metric: string) {
+    if (activeGraphMetrics.includes(metric)) {
+      setActiveGraphMetrics(activeGraphMetrics.filter(m => m !== metric));
+    } else if (activeGraphMetrics.length < 4) {
+      setActiveGraphMetrics([...activeGraphMetrics, metric]);
+    }
+  }
+
+  const dropdownHeight = '44px';
+  function formatValue(value: any, format: string) {
+    if (value === undefined || value === null || value === '-') return '-';
+    if (format === "NUMBER") return Number(value).toLocaleString();
+    if (format === "USD") return `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (format === "PERCENTAGE") return `${(Number(value) * 100).toFixed(2)}%`;
+    return value;
+  }
+
   const filteredData = allMonths.filter(m => m >= dateRange.start && m <= dateRange.end).map(month => {
     const rowsForDate = rawRows.filter(row => String(row["Month"]) === month && (selectedApp === 'All Apps' || row["App Name"] === selectedApp));
     const result: any = { date: month };
@@ -141,18 +160,8 @@ export default function Home() {
         result[m.key] = computeTotalRatio(rowsForDate, 'Spend', 'Installs');
       } else if (m.key === 'cpa') {
         result[m.key] = computeTotalRatio(rowsForDate, 'Spend', 'Customers');
-      } else if (m.key === 'impressions') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Imps']), 0);
-      } else if (m.key === 'clicks') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Clicks']), 0);
-      } else if (m.key === 'installs') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Installs']), 0);
-      } else if (m.key === 'customers') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Customers']), 0);
-      } else if (m.key === 'revenue') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Revenue']), 0);
-      } else if (m.key === 'spend') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Spend']), 0);
+      } else if (m.csvKey) {
+        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row[m.csvKey!]), 0);
       } else {
         result[m.key] = 0;
       }
@@ -160,51 +169,58 @@ export default function Home() {
     return result;
   });
 
-  // Card click toggles metric in graph
-  function toggleGraphMetric(metric: string) {
-    if (activeGraphMetrics.includes(metric)) {
-      setActiveGraphMetrics(activeGraphMetrics.filter(m => m !== metric));
-    } else if (activeGraphMetrics.length < 4) {
-      setActiveGraphMetrics([...activeGraphMetrics, metric]);
+  const chartData = filteredData.map(row => {
+    const newRow: any = { ...row };
+    ALL_METRICS.forEach(m => {
+      if (m.format === 'PERCENTAGE' && typeof newRow[m.key] === 'number') {
+        newRow[m.key] = newRow[m.key] * 100;
+      }
+    });
+    return newRow;
+  });
+
+  // Cards: show only the sum for the last day in the selected range
+  const lastDay = filteredData.length ? filteredData[filteredData.length-1] : undefined;
+
+  // Month picker logic
+  function handleMonthRangeChange(e: React.ChangeEvent<HTMLSelectElement>, which: 'start' | 'end') {
+    const value = e.target.value;
+    if (which === 'start') {
+      setDateRange(r => ({ ...r, start: value }));
+    } else {
+      setDateRange(r => ({ ...r, end: value }));
     }
   }
 
-  // Formatting helpers
-  function formatValue(value: any, format: string) {
-    if (value === undefined || value === null || value === '-') return '-';
-    if (format === "NUMBER") return Number(value).toLocaleString();
-    if (format === "USD") return `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (format === "PERCENTAGE") return `${(Number(value) * 100).toFixed(2)}%`;
-    return value;
-  }
-
-  function toggleMetric(metric: string) {
-    if (pendingMetrics.includes(metric)) {
-      setPendingMetrics(pendingMetrics.filter(m => m !== metric));
-    } else if (pendingMetrics.length < 4) {
-      setPendingMetrics([...pendingMetrics, metric]);
-    }
-  }
-
-  function handleMetricSave() {
-    setSelectedMetrics(pendingMetrics);
-    setActiveGraphMetrics(activeGraphMetrics.filter(m => pendingMetrics.includes(m)).slice(0, 4));
-    setShowMetricsDropdown(false);
-  }
-
-  function handleAppSave() {
-    setSelectedApp(pendingApp);
-    setShowAppDropdown(false);
+  // Format month as 'January 2025'
+  function formatMonth(monthStr: string) {
+    const d = parse(monthStr, 'yyyy-MM-dd', new Date());
+    return format(d, 'MMMM yyyy');
   }
 
   return (
     <div className="flex min-h-screen bg-gray-900 text-white">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-800 flex flex-col px-4 py-6">
+        <Link href="/" legacyBehavior>
+          <a className="flex items-center gap-3 mb-10 mt-2">
+            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold text-xl">S</div>
+            <span className="text-2xl font-bold tracking-wide">Samo ROAS, Bilje mi</span>
+          </a>
+        </Link>
+        <Link href="/yearly-performance/overview" legacyBehavior>
+          <a className="flex items-center gap-3 py-2 px-2 mb-2 rounded-xl text-base font-medium transition-colors whitespace-nowrap truncate bg-gray-700 text-white font-bold" style={{ minHeight: '44px' }}>
+            <HomeIcon className="w-5 h-5 flex-shrink-0" />
+            <span className="truncate">Overview</span>
+          </a>
+        </Link>
+      </aside>
       {/* Main Content */}
       <main className="flex-1 flex justify-center items-start p-10">
         <div className="w-full max-w-[2200px]">
           {/* Controls */}
           <div className="flex flex-col md:flex-row md:items-end gap-4 mb-8">
-            {/* App Picker (styled dropdown) */}
+            {/* App Picker */}
             <div className="flex flex-col relative" style={{ minWidth: 180 }} ref={appDropdownRef}>
               <label className="text-sm mb-1">App</label>
               <button
@@ -251,11 +267,11 @@ export default function Home() {
                 <select value={dateRange.end} onChange={e => handleMonthRangeChange(e, 'end')} className="border rounded px-2 py-1 bg-white text-gray-900">
                   {allMonths.map(month => (
                     <option key={month} value={month}>{formatMonth(month)}</option>
-                  ))}
-                </select>
+                ))}
+              </select>
               </div>
             </div>
-            {/* Metrics Picker (custom dropdown) */}
+            {/* Metrics Picker */}
             <div className="flex flex-col relative" style={{ minWidth: 180 }} ref={metricsDropdownRef}>
               <label className="text-sm mb-1">Metrics</label>
               <button
@@ -317,18 +333,8 @@ export default function Home() {
                     value = computeTotalRatio(lastDayRows, 'Spend', 'Installs');
                   } else if (metric === 'cpa') {
                     value = computeTotalRatio(lastDayRows, 'Spend', 'Customers');
-                  } else if (metric === 'impressions') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Imps']), 0);
-                  } else if (metric === 'clicks') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Clicks']), 0);
-                  } else if (metric === 'installs') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Installs']), 0);
-                  } else if (metric === 'customers') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Customers']), 0);
-                  } else if (metric === 'revenue') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Revenue']), 0);
-                  } else if (metric === 'spend') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Spend']), 0);
+                  } else if (meta.csvKey) {
+                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row[meta.csvKey!]), 0);
                   } else {
                     value = 0;
                   }
@@ -356,18 +362,21 @@ export default function Home() {
                 return (
                   <div key={metric} className="font-bold text-xl text-blue-400 border-b-2 border-blue-400 pb-2">
                     {meta?.label}
-                  </div>
+        </div>
                 );
               })}
             </div>
             <div className="w-full h-[500px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={filteredData}>
+                <LineChart data={chartData}>
                   <XAxis dataKey="date" stroke="#a3d900" />
                   <YAxis stroke="#a3d900" />
                   <Tooltip
                     formatter={(value: any, name: string) => {
                       const meta = ALL_METRICS.find(m => m.key === name);
+                      if (meta?.format === 'PERCENTAGE') {
+                        return `${Number(value).toFixed(2)}%`;
+                      }
                       return formatValue(value, meta?.format || "NUMBER");
                     }}
                   />
@@ -383,4 +392,4 @@ export default function Home() {
       </main>
       </div>
   );
-}
+} 

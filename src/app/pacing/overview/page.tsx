@@ -1,47 +1,82 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import {
-  HomeIcon,
-  ChartBarIcon,
-  CalendarIcon,
-  MagnifyingGlassIcon,
-  Squares2X2Icon
-} from '@heroicons/react/24/outline';
-import Link from 'next/link';
-import { format, parse } from 'date-fns';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { DateRange } from 'react-date-range';
+import { format, parse, startOfMonth, subDays } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
-import { fetchYearlyRaw } from '../utils/yearlyraw';
-import type { YearlyRawRow } from '../utils/yearlyraw';
+import {
+  HomeIcon,
+  Squares2X2Icon,
+  ChartBarIcon,
+  CurrencyDollarIcon,
+  ArrowTrendingUpIcon,
+  EyeIcon
+} from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { fetchPacingRaw } from '../../../utils/pacingraw';
+import type { PacingRawRow } from '../../../utils/pacingraw';
 
 const ALL_METRICS = [
-  { key: "impressions", label: "Impressions", format: "NUMBER" },
-  { key: "clicks", label: "Clicks", format: "NUMBER" },
-  { key: "ctr", label: "CTR", format: "PERCENTAGE" },
-  { key: "installs", label: "Installs", format: "NUMBER" },
-  { key: "install_rate", label: "Install Rate", format: "PERCENTAGE" },
-  { key: "customers", label: "Customers", format: "NUMBER" },
-  { key: "conversion_rate", label: "Conversion Rate", format: "PERCENTAGE" },
-  { key: "revenue", label: "Revenue", format: "USD" },
-  { key: "spend", label: "Spend", format: "USD" },
-  { key: "profit", label: "Profit", format: "USD" },
-  { key: "roas", label: "ROAS", format: "PERCENTAGE" },
-  { key: "cpc", label: "CPC", format: "USD" },
-  { key: "cpi", label: "CPI", format: "USD" },
-  { key: "cpa", label: "CPA", format: "USD" },
+  { key: "impressions", csvKey: "Imps", label: "Impressions", format: "NUMBER" },
+  { key: "clicks", csvKey: "Clicks", label: "Clicks", format: "NUMBER" },
+  { key: "installs", csvKey: "Installs", label: "Installs", format: "NUMBER" },
+  { key: "customers", csvKey: "Customers", label: "Customers", format: "NUMBER" },
+  { key: "revenue", csvKey: "Revenue", label: "Revenue", format: "USD" },
+  { key: "spend", csvKey: "Spend", label: "Spend", format: "USD" },
+  { key: "ctr", label: "CTR", format: "PERCENTAGE", compute: (row: any) => {
+    const imps = Number(row["Imps"]);
+    const clicks = Number(row["Clicks"]);
+    return imps ? clicks / imps : 0;
+  } },
+  { key: "install_rate", label: "Install Rate", format: "PERCENTAGE", compute: (row: any) => {
+    const imps = Number(row["Imps"]);
+    const installs = Number(row["Installs"]);
+    return imps ? installs / imps : 0;
+  } },
+  { key: "conversion_rate", label: "Conversion Rate", format: "PERCENTAGE", compute: (row: any) => {
+    const installs = Number(row["Installs"]);
+    const customers = Number(row["Customers"]);
+    return installs ? customers / installs : 0;
+  } },
+  { key: "profit", label: "Profit", format: "USD", compute: (row: any) => {
+    const revenue = cleanNumber(row["Revenue"]);
+    const cost = cleanNumber(row["Spend"]);
+    return revenue - cost;
+  } },
+  { key: "roas", label: "ROAS", format: "PERCENTAGE", compute: (row: any) => {
+    const cost = cleanNumber(row["Spend"]);
+    const revenue = cleanNumber(row["Revenue"]);
+    return cost ? revenue / cost : 0;
+  } },
+  { key: "cpc", label: "CPC", format: "USD", compute: (row: any) => {
+    const clicks = cleanNumber(row["Clicks"]);
+    const cost = cleanNumber(row["Spend"]);
+    return clicks ? cost / clicks : 0;
+  } },
+  { key: "cpi", label: "CPI", format: "USD", compute: (row: any) => {
+    const installs = cleanNumber(row["Installs"]);
+    const cost = cleanNumber(row["Spend"]);
+    return installs ? cost / installs : 0;
+  } },
+  { key: "cpa", label: "CPA", format: "USD", compute: (row: any) => {
+    const customers = cleanNumber(row["Customers"]);
+    const cost = cleanNumber(row["Spend"]);
+    return customers ? cost / customers : 0;
+  } },
 ];
-
 const DEFAULT_METRICS = ["installs", "install_rate", "cpi", "spend"];
 
 const sidebarItems = [
-  { name: "Overview", icon: HomeIcon, href: "/" },
-  { name: "Pacing", icon: ChartBarIcon, href: "/pacing/overview" },
-  { name: "Yearly Performance", icon: CalendarIcon, href: "/yearly-performance/overview" },
-  { name: "Search Term Report", icon: MagnifyingGlassIcon, href: "/search-term-report" },
-  { name: "Splits", icon: Squares2X2Icon, href: "/splits" },
+  { name: "Overview", icon: HomeIcon, href: "/pacing/overview" },
+  { name: "App/Campaign Split", icon: Squares2X2Icon, href: "/pacing/app-campaign-split" },
+  { name: "Install Tracker", icon: ChartBarIcon, href: "/pacing/install-tracker" },
+  { name: "Budget Tracker", icon: CurrencyDollarIcon, href: "/pacing/budget-tracker" },
+  { name: "Yesterday vs. Day Before", icon: ArrowTrendingUpIcon, href: "/pacing/yesterday-vs-day-before" },
+  { name: "Ad Visibility", icon: EyeIcon, href: "/pacing/ad-visibility" },
 ];
 
+// Utility to clean and parse numbers (handles $ and commas)
 function cleanNumber(val: any) {
   if (typeof val !== 'string' && typeof val !== 'number') return 0;
   let str = String(val).replace(/[$,]/g, '').trim();
@@ -50,78 +85,87 @@ function cleanNumber(val: any) {
   return isNaN(num) ? 0 : num;
 }
 
+// Helper to compute total numerator/denominator for ratio metrics on the last day
 function computeTotalRatio(rows: any[], numeratorKey: string, denominatorKey: string) {
   const numerator = rows.reduce((sum, row) => sum + cleanNumber(row[numeratorKey]), 0);
   const denominator = rows.reduce((sum, row) => sum + cleanNumber(row[denominatorKey]), 0);
   return denominator ? numerator / denominator : 0;
 }
 
-export default function Home() {
-  const [rawRows, setRawRows] = useState<YearlyRawRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [allMonths, setAllMonths] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+export default function PacingOverview() {
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [availableMetrics, setAvailableMetrics] = useState<string[]>(ALL_METRICS.map(m => m.key));
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(DEFAULT_METRICS);
   const [selectedApp, setSelectedApp] = useState<string>('All Apps');
   const [showMetricsDropdown, setShowMetricsDropdown] = useState(false);
   const [showAppDropdown, setShowAppDropdown] = useState(false);
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [pendingMetrics, setPendingMetrics] = useState<string[]>(selectedMetrics);
   const [pendingApp, setPendingApp] = useState<string>(selectedApp);
   const [activeGraphMetrics, setActiveGraphMetrics] = useState<string[]>(DEFAULT_METRICS);
+  const [rawRows, setRawRows] = useState<PacingRawRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [allDates, setAllDates] = useState<string[]>([]);
 
   const metricsDropdownRef = useRef<HTMLDivElement>(null);
   const appDropdownRef = useRef<HTMLDivElement>(null);
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Extract app names from data
-  const appNames = React.useMemo(() => {
-    const names = Array.from(new Set(rawRows.map(row => String(row["App Name"])).filter(Boolean)));
-    return ['All Apps', ...names];
-  }, [rawRows]);
+  // Calculate date restrictions
+  const today = new Date();
+  const firstDayOfMonth = startOfMonth(today);
+  const yesterday = subDays(today, 1);
+  const firstDayFormatted = format(firstDayOfMonth, 'yyyy-MM-dd');
+  const yesterdayFormatted = format(yesterday, 'yyyy-MM-dd');
 
   useEffect(() => {
-    fetchYearlyRaw().then((data: YearlyRawRow[]) => {
+    function handleClickOutside(event: MouseEvent) {
+      if (showMetricsDropdown && metricsDropdownRef.current && !metricsDropdownRef.current.contains(event.target as Node)) {
+        setShowMetricsDropdown(false);
+      }
+      if (showAppDropdown && appDropdownRef.current && !appDropdownRef.current.contains(event.target as Node)) {
+        setShowAppDropdown(false);
+      }
+      if (showDateDropdown && dateDropdownRef.current && !dateDropdownRef.current.contains(event.target as Node)) {
+        setShowDateDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMetricsDropdown, showAppDropdown, showDateDropdown]);
+
+  useEffect(() => {
+    fetchPacingRaw().then((data: PacingRawRow[]) => {
       setRawRows(data);
-      const months = Array.from(new Set(data.map(row => String(row["Month"])).filter(Boolean))).sort();
-      setAllMonths(months);
-      if (months.length > 0) {
-        setDateRange({ start: months[0], end: months[months.length - 1] });
+      const dates = Array.from(new Set(data.map((row: PacingRawRow) => String(row.Date)))).sort();
+      // Filter dates to only include current month up to yesterday
+      const availableDates = dates.filter(date => {
+        const dateObj = parse(date, 'dd/MM/yyyy', new Date());
+        return dateObj >= firstDayOfMonth && dateObj <= yesterday;
+      });
+      setAllDates(availableDates);
+      if (availableDates.length > 0) {
+        setDateRange({ start: availableDates[0], end: availableDates[availableDates.length - 1] });
       }
       setLoading(false);
     }).catch(() => setError('Failed to fetch data'));
   }, []);
 
-  useEffect(() => {
-    if (allMonths.length > 0 && (!dateRange.start || !dateRange.end)) {
-      setDateRange({ start: allMonths[0], end: allMonths[allMonths.length - 1] });
-    }
-  }, [allMonths]);
+  // Dynamically generate app list from data (must be before any early returns)
+  const appNames = React.useMemo(() => {
+    const names = Array.from(new Set(rawRows.map(row => String(row["App Name"])))).filter(Boolean);
+    return ['All Apps', ...names];
+  }, [rawRows]);
 
   if (loading) return <div className="p-8 text-lg">Loading...</div>;
   if (error) return <div className="p-8 text-red-600">{error}</div>;
   if (!rawRows.length) return <div className="p-8 text-gray-600">No data found.</div>;
-  if (!dateRange.start || !dateRange.end) return <div className="p-8 text-gray-600">No months available.</div>;
+  if (!dateRange.start || !dateRange.end) return <div className="p-8 text-gray-600">No dates available.</div>;
 
-  // Month picker logic
-  function handleMonthRangeChange(e: React.ChangeEvent<HTMLSelectElement>, which: 'start' | 'end') {
-    const value = e.target.value;
-    if (which === 'start') {
-      setDateRange(r => ({ ...r, start: value }));
-    } else {
-      setDateRange(r => ({ ...r, end: value }));
-    }
-  }
-
-  // Format month as 'January 2025'
-  function formatMonth(monthStr: string) {
-    const d = parse(monthStr, 'yyyy-MM-dd', new Date());
-    return format(d, 'MMMM yyyy');
-  }
-
-  // Filtering and metric calculation
-  const filteredData = allMonths.filter(m => m >= dateRange.start && m <= dateRange.end).map(month => {
-    const rowsForDate = rawRows.filter(row => String(row["Month"]) === month && (selectedApp === 'All Apps' || row["App Name"] === selectedApp));
-    const result: any = { date: month };
+  const filteredData = allDates.filter(d => d >= dateRange.start && d <= dateRange.end).map(date => {
+    const rowsForDate = rawRows.filter(row => String(row.Date) === date && (selectedApp === 'All Apps' || row["App Name"] === selectedApp));
+    const result: any = { date };
     ALL_METRICS.forEach(m => {
       if (m.key === 'ctr') {
         result[m.key] = computeTotalRatio(rowsForDate, 'Clicks', 'Imps');
@@ -141,18 +185,9 @@ export default function Home() {
         result[m.key] = computeTotalRatio(rowsForDate, 'Spend', 'Installs');
       } else if (m.key === 'cpa') {
         result[m.key] = computeTotalRatio(rowsForDate, 'Spend', 'Customers');
-      } else if (m.key === 'impressions') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Imps']), 0);
-      } else if (m.key === 'clicks') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Clicks']), 0);
-      } else if (m.key === 'installs') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Installs']), 0);
-      } else if (m.key === 'customers') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Customers']), 0);
-      } else if (m.key === 'revenue') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Revenue']), 0);
-      } else if (m.key === 'spend') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Spend']), 0);
+      } else if (m.csvKey) {
+        // Sum metrics: sum the column
+        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row[m.csvKey!]), 0);
       } else {
         result[m.key] = 0;
       }
@@ -160,22 +195,18 @@ export default function Home() {
     return result;
   });
 
-  // Card click toggles metric in graph
-  function toggleGraphMetric(metric: string) {
-    if (activeGraphMetrics.includes(metric)) {
-      setActiveGraphMetrics(activeGraphMetrics.filter(m => m !== metric));
-    } else if (activeGraphMetrics.length < 4) {
-      setActiveGraphMetrics([...activeGraphMetrics, metric]);
-    }
-  }
+  const range = [{
+    startDate: parse(dateRange.start, 'dd/MM/yyyy', new Date()),
+    endDate: parse(dateRange.end, 'dd/MM/yyyy', new Date()),
+    key: 'selection',
+  }];
 
-  // Formatting helpers
-  function formatValue(value: any, format: string) {
-    if (value === undefined || value === null || value === '-') return '-';
-    if (format === "NUMBER") return Number(value).toLocaleString();
-    if (format === "USD") return `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (format === "PERCENTAGE") return `${(Number(value) * 100).toFixed(2)}%`;
-    return value;
+  function handleDateRangeChange(ranges: any) {
+    setDateRange({
+      start: format(ranges.selection.startDate, 'dd/MM/yyyy'),
+      end: format(ranges.selection.endDate, 'dd/MM/yyyy'),
+    });
+    setShowDateDropdown(false);
   }
 
   function toggleMetric(metric: string) {
@@ -197,6 +228,34 @@ export default function Home() {
     setShowAppDropdown(false);
   }
 
+  function toggleGraphMetric(metric: string) {
+    if (activeGraphMetrics.includes(metric)) {
+      setActiveGraphMetrics(activeGraphMetrics.filter(m => m !== metric));
+    } else if (activeGraphMetrics.length < 4) {
+      setActiveGraphMetrics([...activeGraphMetrics, metric]);
+    }
+  }
+
+  const dropdownHeight = '44px';
+  function formatValue(value: any, format: string) {
+    if (value === undefined || value === null || value === '-') return '-';
+    if (format === "NUMBER") return Number(value).toLocaleString();
+    if (format === "USD") return `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (format === "PERCENTAGE") return `${(Number(value) * 100).toFixed(2)}%`;
+    return value;
+  }
+
+  // For the graph, multiply percentage values by 100 so the y-axis is 0-100
+  const chartData = filteredData.map(row => {
+    const newRow: any = { ...row };
+    ALL_METRICS.forEach(m => {
+      if (m.format === 'PERCENTAGE' && typeof newRow[m.key] === 'number') {
+        newRow[m.key] = newRow[m.key] * 100;
+      }
+    });
+    return newRow;
+  });
+
   return (
     <div className="flex min-h-screen bg-gray-900 text-white">
       {/* Main Content */}
@@ -212,7 +271,7 @@ export default function Home() {
                 onClick={() => setShowAppDropdown(v => !v)}
                 type="button"
               >
-                {selectedApp}
+                {appNames.find(app => app === selectedApp) || "Select app"}
               </button>
               {showAppDropdown && (
                 <div className="absolute z-10 mt-1 bg-white text-black border rounded shadow-lg w-full max-h-60 overflow-y-auto flex flex-col" style={{paddingBottom: 48}}>
@@ -238,22 +297,30 @@ export default function Home() {
                 </div>
               )}
             </div>
-            {/* Month Range Picker */}
-            <div className="flex flex-col relative" style={{ minWidth: 220 }}>
-              <label className="text-sm mb-1">Month Range</label>
-              <div className="flex gap-2 items-center">
-                <select value={dateRange.start} onChange={e => handleMonthRangeChange(e, 'start')} className="border rounded px-2 py-1 bg-white text-gray-900">
-                  {allMonths.map(month => (
-                    <option key={month} value={month}>{formatMonth(month)}</option>
-                  ))}
-                </select>
-                <span className="mx-1">to</span>
-                <select value={dateRange.end} onChange={e => handleMonthRangeChange(e, 'end')} className="border rounded px-2 py-1 bg-white text-gray-900">
-                  {allMonths.map(month => (
-                    <option key={month} value={month}>{formatMonth(month)}</option>
-                  ))}
-                </select>
-              </div>
+            {/* Date Range Picker (single dropdown calendar) */}
+            <div className="flex flex-col relative" style={{ minWidth: 220 }} ref={dateDropdownRef}>
+              <label className="text-sm mb-1">Date Range</label>
+              <button
+                className="flex gap-2 items-center bg-white text-black rounded px-3 py-2 h-[44px] border border-gray-300 min-w-[220px] text-left"
+                onClick={() => setShowDateDropdown(v => !v)}
+                type="button"
+              >
+                {format(parse(dateRange.start, 'dd/MM/yyyy', new Date()), 'MMM dd, yyyy')} - {format(parse(dateRange.end, 'dd/MM/yyyy', new Date()), 'MMM dd, yyyy')}
+              </button>
+              {showDateDropdown && allDates.length > 0 && (
+                <div className="absolute z-20 mt-2 bg-white text-black border rounded shadow-lg">
+                  <DateRange
+                    ranges={range}
+                    onChange={handleDateRangeChange}
+                    moveRangeOnFirstSelection={false}
+                    months={1}
+                    direction="horizontal"
+                    rangeColors={["#2563eb"]}
+                    minDate={parse(allDates[0], 'dd/MM/yyyy', new Date())}
+                    maxDate={parse(allDates[allDates.length-1], 'dd/MM/yyyy', new Date())}
+                  />
+                </div>
+              )}
             </div>
             {/* Metrics Picker (custom dropdown) */}
             <div className="flex flex-col relative" style={{ minWidth: 180 }} ref={metricsDropdownRef}>
@@ -296,8 +363,8 @@ export default function Home() {
               const metric = meta.key;
               let value: number | undefined = undefined;
               if (filteredData.length) {
-                const lastMonth = allMonths[allMonths.length-1];
-                const lastDayRows = rawRows.filter(row => String(row["Month"]) === lastMonth && (selectedApp === 'All Apps' || row["App Name"] === selectedApp));
+                const lastDate = allDates[allDates.length-1];
+                const lastDayRows = rawRows.filter(row => String(row.Date) === lastDate && (selectedApp === 'All Apps' || row["App Name"] === selectedApp));
                 if (lastDayRows.length) {
                   if (metric === 'ctr') {
                     value = computeTotalRatio(lastDayRows, 'Clicks', 'Imps');
@@ -317,20 +384,12 @@ export default function Home() {
                     value = computeTotalRatio(lastDayRows, 'Spend', 'Installs');
                   } else if (metric === 'cpa') {
                     value = computeTotalRatio(lastDayRows, 'Spend', 'Customers');
-                  } else if (metric === 'impressions') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Imps']), 0);
-                  } else if (metric === 'clicks') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Clicks']), 0);
-                  } else if (metric === 'installs') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Installs']), 0);
-                  } else if (metric === 'customers') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Customers']), 0);
-                  } else if (metric === 'revenue') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Revenue']), 0);
-                  } else if (metric === 'spend') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Spend']), 0);
                   } else {
-                    value = 0;
+                    if (meta.csvKey) {
+                      value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row[meta.csvKey!]), 0);
+                    } else {
+                      value = 0;
+                    }
                   }
                 }
               }
@@ -362,12 +421,16 @@ export default function Home() {
             </div>
             <div className="w-full h-[500px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={filteredData}>
+                <LineChart data={chartData}>
                   <XAxis dataKey="date" stroke="#a3d900" />
                   <YAxis stroke="#a3d900" />
                   <Tooltip
                     formatter={(value: any, name: string) => {
                       const meta = ALL_METRICS.find(m => m.key === name);
+                      // For percentage, value is already multiplied by 100
+                      if (meta?.format === 'PERCENTAGE') {
+                        return `${Number(value).toFixed(2)}%`;
+                      }
                       return formatValue(value, meta?.format || "NUMBER");
                     }}
                   />
@@ -381,6 +444,6 @@ export default function Home() {
           </div>
         </div>
       </main>
-      </div>
+    </div>
   );
-}
+} 

@@ -46,14 +46,6 @@ const TopBar = () => (
 const Dashboard = () => {
   return (
     <div className="flex flex-row gap-8">
-      {/* Sidebar */}
-      <aside className="flex flex-col items-center py-8 px-2 bg-transparent">
-        <SidebarIcon><HomeIcon className="w-7 h-7" /></SidebarIcon>
-        <SidebarIcon><ChartBarIcon className="w-7 h-7" /></SidebarIcon>
-        <SidebarIcon><CreditCardIcon className="w-7 h-7" /></SidebarIcon>
-        <SidebarIcon><UserCircleIcon className="w-7 h-7" /></SidebarIcon>
-        <SidebarIcon><Cog6ToothIcon className="w-7 h-7" /></SidebarIcon>
-      </aside>
       {/* Main content */}
       <div className="flex-1 flex flex-col">
         <TopBar />

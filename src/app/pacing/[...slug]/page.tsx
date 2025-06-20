@@ -1,11 +1,11 @@
 "use client";
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import RawDataTable from '../../components/RawDataTable';
-import YesterdayVsDayBeforeTable from '../../components/YesterdayVsDayBeforeTable';
-import BudgetAnalysisTable from '../../components/BudgetAnalysisTable';
-import InstallsPaceTable from '../../components/InstallsPaceTable';
-import NavBar from '../../components/NavBar';
+import RawDataTable from '../../../components/RawDataTable';
+import YesterdayVsDayBeforeTable from '../../../components/YesterdayVsDayBeforeTable';
+import BudgetAnalysisTable from '../../../components/BudgetAnalysisTable';
+import InstallsPaceTable from '../../../components/InstallsPaceTable';
+import NavBar from '../../../components/NavBar';
 
 const subtabs = [
   { name: 'App/Campaign Split', href: '/pacing', component: RawDataTable },

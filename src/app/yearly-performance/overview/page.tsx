@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import {
   HomeIcon,
@@ -9,38 +9,72 @@ import {
   Squares2X2Icon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
-import { format, parse } from 'date-fns';
+import { DateRange } from 'react-date-range';
+import { format, parse, parseISO } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
-import { fetchYearlyRaw } from '../utils/yearlyraw';
-import type { YearlyRawRow } from '../utils/yearlyraw';
+import { fetchYearlyRaw } from '../../../utils/yearlyraw';
+import type { YearlyRawRow } from '../../../utils/yearlyraw';
 
 const ALL_METRICS = [
-  { key: "impressions", label: "Impressions", format: "NUMBER" },
-  { key: "clicks", label: "Clicks", format: "NUMBER" },
+  { key: "impressions", csvKey: "Imps", label: "Impressions", format: "NUMBER" },
+  { key: "clicks", csvKey: "Clicks", label: "Clicks", format: "NUMBER" },
+  { key: "installs", csvKey: "Installs", label: "Installs", format: "NUMBER" },
+  { key: "customers", csvKey: "Customers", label: "Customers", format: "NUMBER" },
+  { key: "revenue", csvKey: "Revenue", label: "Revenue", format: "USD" },
+  { key: "spend", csvKey: "Spend", label: "Spend", format: "USD" },
   { key: "ctr", label: "CTR", format: "PERCENTAGE" },
-  { key: "installs", label: "Installs", format: "NUMBER" },
   { key: "install_rate", label: "Install Rate", format: "PERCENTAGE" },
-  { key: "customers", label: "Customers", format: "NUMBER" },
   { key: "conversion_rate", label: "Conversion Rate", format: "PERCENTAGE" },
-  { key: "revenue", label: "Revenue", format: "USD" },
-  { key: "spend", label: "Spend", format: "USD" },
   { key: "profit", label: "Profit", format: "USD" },
   { key: "roas", label: "ROAS", format: "PERCENTAGE" },
   { key: "cpc", label: "CPC", format: "USD" },
   { key: "cpi", label: "CPI", format: "USD" },
   { key: "cpa", label: "CPA", format: "USD" },
 ];
-
 const DEFAULT_METRICS = ["installs", "install_rate", "cpi", "spend"];
 
-const sidebarItems = [
-  { name: "Overview", icon: HomeIcon, href: "/" },
-  { name: "Pacing", icon: ChartBarIcon, href: "/pacing/overview" },
-  { name: "Yearly Performance", icon: CalendarIcon, href: "/yearly-performance/overview" },
-  { name: "Search Term Report", icon: MagnifyingGlassIcon, href: "/search-term-report" },
-  { name: "Splits", icon: Squares2X2Icon, href: "/splits" },
+const summaryCards = [
+  { label: "Views", value: "7,265", change: "+11.01%", highlight: true },
+  { label: "Visits", value: "3,671", change: "-0.03%" },
+  { label: "New Users", value: "256", change: "+15.03%", highlight: true },
+  { label: "Active Users", value: "2,318", change: "+6.08%" },
 ];
+
+const lineData = [
+  { name: 'Jan', users: 400 },
+  { name: 'Feb', users: 300 },
+  { name: 'Mar', users: 500 },
+  { name: 'Apr', users: 700 },
+  { name: 'May', users: 600 },
+  { name: 'Jun', users: 650 },
+];
+
+const deviceData = [
+  { name: 'Linux', value: 100 },
+  { name: 'Mac', value: 180 },
+  { name: 'iOS', value: 120 },
+  { name: 'Windows', value: 220 },
+  { name: 'Android', value: 243 },
+  { name: 'Other', value: 80 },
+];
+
+const locationData = [
+  { name: 'US', value: 100 },
+  { name: 'Canada', value: 90 },
+  { name: 'Mexico', value: 80 },
+  { name: 'China', value: 70 },
+  { name: 'Japan', value: 120 },
+  { name: 'Australia', value: 60 },
+];
+
+const sidebarItems = [
+  { name: "Overview", icon: HomeIcon, href: "/yearly-performance/overview" },
+  { name: "Month to Month", icon: HomeIcon, href: "/yearly-performance/month-to-month" },
+];
+
+// Get current path for highlighting
+const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
 
 function cleanNumber(val: any) {
   if (typeof val !== 'string' && typeof val !== 'number') return 0;
@@ -56,33 +90,50 @@ function computeTotalRatio(rows: any[], numeratorKey: string, denominatorKey: st
   return denominator ? numerator / denominator : 0;
 }
 
-export default function Home() {
-  const [rawRows, setRawRows] = useState<YearlyRawRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [allMonths, setAllMonths] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(DEFAULT_METRICS);
-  const [selectedApp, setSelectedApp] = useState<string>('All Apps');
-  const [showMetricsDropdown, setShowMetricsDropdown] = useState(false);
-  const [showAppDropdown, setShowAppDropdown] = useState(false);
-  const [pendingMetrics, setPendingMetrics] = useState<string[]>(selectedMetrics);
-  const [pendingApp, setPendingApp] = useState<string>(selectedApp);
-  const [activeGraphMetrics, setActiveGraphMetrics] = useState<string[]>(DEFAULT_METRICS);
+export default function YearlyPerformanceOverview() {
+  const [rawRows, setRawRows] = React.useState<YearlyRawRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [allMonths, setAllMonths] = React.useState<string[]>([]);
+  const [dateRange, setDateRange] = React.useState({ start: '', end: '' });
+  const [selectedMetrics, setSelectedMetrics] = React.useState<string[]>(DEFAULT_METRICS);
+  const [selectedApp, setSelectedApp] = React.useState<string>('All Apps');
+  const [showMetricsDropdown, setShowMetricsDropdown] = React.useState(false);
+  const [showAppDropdown, setShowAppDropdown] = React.useState(false);
+  const [showDateDropdown, setShowDateDropdown] = React.useState(false);
+  const [pendingMetrics, setPendingMetrics] = React.useState<string[]>(selectedMetrics);
+  const [pendingApp, setPendingApp] = React.useState<string>(selectedApp);
+  const [activeGraphMetrics, setActiveGraphMetrics] = React.useState<string[]>(DEFAULT_METRICS);
 
-  const metricsDropdownRef = useRef<HTMLDivElement>(null);
-  const appDropdownRef = useRef<HTMLDivElement>(null);
+  const metricsDropdownRef = React.useRef<HTMLDivElement>(null);
+  const appDropdownRef = React.useRef<HTMLDivElement>(null);
+  const dateDropdownRef = React.useRef<HTMLDivElement>(null);
 
-  // Extract app names from data
   const appNames = React.useMemo(() => {
-    const names = Array.from(new Set(rawRows.map(row => String(row["App Name"])).filter(Boolean)));
+    const names = Array.from(new Set(rawRows.map(row => String(row["App Name"])))).filter(Boolean);
     return ['All Apps', ...names];
   }, [rawRows]);
 
-  useEffect(() => {
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (showMetricsDropdown && metricsDropdownRef.current && !metricsDropdownRef.current.contains(event.target as Node)) {
+        setShowMetricsDropdown(false);
+      }
+      if (showAppDropdown && appDropdownRef.current && !appDropdownRef.current.contains(event.target as Node)) {
+        setShowAppDropdown(false);
+      }
+      if (showDateDropdown && dateDropdownRef.current && !dateDropdownRef.current.contains(event.target as Node)) {
+        setShowDateDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMetricsDropdown, showAppDropdown, showDateDropdown]);
+
+  React.useEffect(() => {
     fetchYearlyRaw().then((data: YearlyRawRow[]) => {
       setRawRows(data);
-      const months = Array.from(new Set(data.map(row => String(row["Month"])).filter(Boolean))).sort();
+      const months = Array.from(new Set(data.map(row => String(row["Month"])))).sort();
       setAllMonths(months);
       if (months.length > 0) {
         setDateRange({ start: months[0], end: months[months.length - 1] });
@@ -91,18 +142,17 @@ export default function Home() {
     }).catch(() => setError('Failed to fetch data'));
   }, []);
 
-  useEffect(() => {
-    if (allMonths.length > 0 && (!dateRange.start || !dateRange.end)) {
-      setDateRange({ start: allMonths[0], end: allMonths[allMonths.length - 1] });
-    }
-  }, [allMonths]);
-
   if (loading) return <div className="p-8 text-lg">Loading...</div>;
   if (error) return <div className="p-8 text-red-600">{error}</div>;
   if (!rawRows.length) return <div className="p-8 text-gray-600">No data found.</div>;
   if (!dateRange.start || !dateRange.end) return <div className="p-8 text-gray-600">No months available.</div>;
 
-  // Month picker logic
+  const range = [{
+    startDate: parse(dateRange.start, 'yyyy-MM-dd', new Date()),
+    endDate: parse(dateRange.end, 'yyyy-MM-dd', new Date()),
+    key: 'selection',
+  }];
+
   function handleMonthRangeChange(e: React.ChangeEvent<HTMLSelectElement>, which: 'start' | 'end') {
     const value = e.target.value;
     if (which === 'start') {
@@ -112,13 +162,47 @@ export default function Home() {
     }
   }
 
-  // Format month as 'January 2025'
   function formatMonth(monthStr: string) {
     const d = parse(monthStr, 'yyyy-MM-dd', new Date());
     return format(d, 'MMMM yyyy');
   }
 
-  // Filtering and metric calculation
+  function toggleMetric(metric: string) {
+    if (pendingMetrics.includes(metric)) {
+      setPendingMetrics(pendingMetrics.filter(m => m !== metric));
+    } else if (pendingMetrics.length < 4) {
+      setPendingMetrics([...pendingMetrics, metric]);
+    }
+  }
+
+  function handleMetricSave() {
+    setSelectedMetrics(pendingMetrics);
+    setActiveGraphMetrics(activeGraphMetrics.filter(m => pendingMetrics.includes(m)).slice(0, 4));
+    setShowMetricsDropdown(false);
+  }
+
+  function handleAppSave() {
+    setSelectedApp(pendingApp);
+    setShowAppDropdown(false);
+  }
+
+  function toggleGraphMetric(metric: string) {
+    if (activeGraphMetrics.includes(metric)) {
+      setActiveGraphMetrics(activeGraphMetrics.filter(m => m !== metric));
+    } else if (activeGraphMetrics.length < 4) {
+      setActiveGraphMetrics([...activeGraphMetrics, metric]);
+    }
+  }
+
+  const dropdownHeight = '44px';
+  function formatValue(value: any, format: string) {
+    if (value === undefined || value === null || value === '-') return '-';
+    if (format === "NUMBER") return Number(value).toLocaleString();
+    if (format === "USD") return `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (format === "PERCENTAGE") return `${(Number(value) * 100).toFixed(2)}%`;
+    return value;
+  }
+
   const filteredData = allMonths.filter(m => m >= dateRange.start && m <= dateRange.end).map(month => {
     const rowsForDate = rawRows.filter(row => String(row["Month"]) === month && (selectedApp === 'All Apps' || row["App Name"] === selectedApp));
     const result: any = { date: month };
@@ -141,18 +225,8 @@ export default function Home() {
         result[m.key] = computeTotalRatio(rowsForDate, 'Spend', 'Installs');
       } else if (m.key === 'cpa') {
         result[m.key] = computeTotalRatio(rowsForDate, 'Spend', 'Customers');
-      } else if (m.key === 'impressions') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Imps']), 0);
-      } else if (m.key === 'clicks') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Clicks']), 0);
-      } else if (m.key === 'installs') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Installs']), 0);
-      } else if (m.key === 'customers') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Customers']), 0);
-      } else if (m.key === 'revenue') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Revenue']), 0);
-      } else if (m.key === 'spend') {
-        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row['Spend']), 0);
+      } else if (m.csvKey) {
+        result[m.key] = rowsForDate.reduce((sum, row) => sum + cleanNumber(row[m.csvKey!]), 0);
       } else {
         result[m.key] = 0;
       }
@@ -160,42 +234,15 @@ export default function Home() {
     return result;
   });
 
-  // Card click toggles metric in graph
-  function toggleGraphMetric(metric: string) {
-    if (activeGraphMetrics.includes(metric)) {
-      setActiveGraphMetrics(activeGraphMetrics.filter(m => m !== metric));
-    } else if (activeGraphMetrics.length < 4) {
-      setActiveGraphMetrics([...activeGraphMetrics, metric]);
-    }
-  }
-
-  // Formatting helpers
-  function formatValue(value: any, format: string) {
-    if (value === undefined || value === null || value === '-') return '-';
-    if (format === "NUMBER") return Number(value).toLocaleString();
-    if (format === "USD") return `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (format === "PERCENTAGE") return `${(Number(value) * 100).toFixed(2)}%`;
-    return value;
-  }
-
-  function toggleMetric(metric: string) {
-    if (pendingMetrics.includes(metric)) {
-      setPendingMetrics(pendingMetrics.filter(m => m !== metric));
-    } else if (pendingMetrics.length < 4) {
-      setPendingMetrics([...pendingMetrics, metric]);
-    }
-  }
-
-  function handleMetricSave() {
-    setSelectedMetrics(pendingMetrics);
-    setActiveGraphMetrics(activeGraphMetrics.filter(m => pendingMetrics.includes(m)).slice(0, 4));
-    setShowMetricsDropdown(false);
-  }
-
-  function handleAppSave() {
-    setSelectedApp(pendingApp);
-    setShowAppDropdown(false);
-  }
+  const chartData = filteredData.map(row => {
+    const newRow: any = { ...row };
+    ALL_METRICS.forEach(m => {
+      if (m.format === 'PERCENTAGE' && typeof newRow[m.key] === 'number') {
+        newRow[m.key] = newRow[m.key] * 100;
+      }
+    });
+    return newRow;
+  });
 
   return (
     <div className="flex min-h-screen bg-gray-900 text-white">
@@ -294,46 +341,7 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {ALL_METRICS.filter(m => selectedMetrics.includes(m.key)).map((meta, i) => {
               const metric = meta.key;
-              let value: number | undefined = undefined;
-              if (filteredData.length) {
-                const lastMonth = allMonths[allMonths.length-1];
-                const lastDayRows = rawRows.filter(row => String(row["Month"]) === lastMonth && (selectedApp === 'All Apps' || row["App Name"] === selectedApp));
-                if (lastDayRows.length) {
-                  if (metric === 'ctr') {
-                    value = computeTotalRatio(lastDayRows, 'Clicks', 'Imps');
-                  } else if (metric === 'install_rate') {
-                    value = computeTotalRatio(lastDayRows, 'Installs', 'Clicks');
-                  } else if (metric === 'conversion_rate') {
-                    value = computeTotalRatio(lastDayRows, 'Customers', 'Installs');
-                  } else if (metric === 'profit') {
-                    const totalRevenue = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Revenue']), 0);
-                    const totalSpend = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Spend']), 0);
-                    value = totalRevenue - totalSpend;
-                  } else if (metric === 'roas') {
-                    value = computeTotalRatio(lastDayRows, 'Revenue', 'Spend');
-                  } else if (metric === 'cpc') {
-                    value = computeTotalRatio(lastDayRows, 'Spend', 'Clicks');
-                  } else if (metric === 'cpi') {
-                    value = computeTotalRatio(lastDayRows, 'Spend', 'Installs');
-                  } else if (metric === 'cpa') {
-                    value = computeTotalRatio(lastDayRows, 'Spend', 'Customers');
-                  } else if (metric === 'impressions') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Imps']), 0);
-                  } else if (metric === 'clicks') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Clicks']), 0);
-                  } else if (metric === 'installs') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Installs']), 0);
-                  } else if (metric === 'customers') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Customers']), 0);
-                  } else if (metric === 'revenue') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Revenue']), 0);
-                  } else if (metric === 'spend') {
-                    value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Spend']), 0);
-                  } else {
-                    value = 0;
-                  }
-                }
-              }
+              const value = filteredData.length ? filteredData[filteredData.length-1][metric as keyof typeof filteredData[0]] : '-';
               const isActive = activeGraphMetrics.includes(metric);
               return (
                 <button
@@ -362,7 +370,7 @@ export default function Home() {
             </div>
             <div className="w-full h-[500px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={filteredData}>
+                <LineChart data={chartData}>
                   <XAxis dataKey="date" stroke="#a3d900" />
                   <YAxis stroke="#a3d900" />
                   <Tooltip
@@ -381,6 +389,6 @@ export default function Home() {
           </div>
         </div>
       </main>
-      </div>
+    </div>
   );
-}
+} 
