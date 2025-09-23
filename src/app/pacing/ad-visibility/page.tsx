@@ -1,28 +1,17 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import { motion } from "framer-motion";
+import { Card } from "../../../components/ui/Card";
+import { Badge } from "../../../components/ui/Badge";
 import {
-  HomeIcon,
-  Squares2X2Icon,
-  ChartBarIcon,
-  CurrencyDollarIcon,
-  ArrowTrendingUpIcon,
-  EyeIcon
+  EyeIcon,
+  ChartBarSquareIcon,
+  CalendarIcon,
+  DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline';
 import { fetchPacingRaw } from '../../../utils/pacingraw';
 import type { PacingRawRow } from '../../../utils/pacingraw';
 import { format, parse, startOfMonth, subDays } from 'date-fns';
-
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTZoM4CtqKHTAUAGLubLFG0-lsbhSrLLy7Y6qN_o62LlRcHsEHjOtDy6eyUYK0A5zCSAnA5hKwAfA7l/pub?gid=1225782318&single=true&output=csv";
-
-const sidebarItems = [
-  { name: "Overview", icon: HomeIcon, href: "/pacing/overview" },
-  { name: "App/Campaign Split", icon: Squares2X2Icon, href: "/pacing/app-campaign-split" },
-  { name: "Install Tracker", icon: ChartBarIcon, href: "/pacing/install-tracker" },
-  { name: "Budget Tracker", icon: CurrencyDollarIcon, href: "/pacing/budget-tracker" },
-  { name: "Yesterday vs. Day Before", icon: ArrowTrendingUpIcon, href: "/pacing/yesterday-vs-day-before" },
-  { name: "Ad Visibility", icon: EyeIcon, href: "/pacing/ad-visibility" },
-];
 
 function cleanNumber(val: any) {
   if (typeof val !== 'string' && typeof val !== 'number') return 0;
@@ -43,8 +32,6 @@ export default function AdVisibilityPage() {
   const today = new Date();
   const firstDayOfMonth = startOfMonth(today);
   const yesterday = subDays(today, 1);
-  const firstDayFormatted = format(firstDayOfMonth, 'yyyy-MM-dd');
-  const yesterdayFormatted = format(yesterday, 'yyyy-MM-dd');
 
   useEffect(() => {
     fetchPacingRaw()
@@ -73,9 +60,32 @@ export default function AdVisibilityPage() {
     }
   }, [allAppNames.length]);
 
-  if (loading) return <div className="p-8 text-lg">Loading...</div>;
-  if (error) return <div className="p-8 text-red-600">{error}</div>;
-  if (!rows.length) return <div className="p-8 text-gray-600">No data found.</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-400"></div>
+          <span className="text-slate-300 text-lg">Loading visibility data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="text-red-400 text-lg">{error}</div>
+      </div>
+    );
+  }
+
+  if (!rows.length) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="text-slate-400 text-lg">No data found.</div>
+      </div>
+    );
+  }
 
   // Group data: { [app]: { [campaign]: { [date]: visibility } } }
   const grouped: Record<string, Record<string, Record<string, number | null>>> = {};
@@ -90,43 +100,123 @@ export default function AdVisibilityPage() {
     grouped[app][campaign][date] = vis;
   });
 
+  // Calculate statistics
+  const totalCampaigns = Object.values(grouped).reduce((sum, app) => sum + Object.keys(app).length, 0);
+  const uniqueApps = Object.keys(grouped).length;
+  const dateRange = allDates.length > 0 ? `${allDates[0]} - ${allDates[allDates.length - 1]}` : 'No dates';
+
   return (
-    <div className="flex min-h-screen bg-gray-900 text-white w-full overflow-x-hidden">
-      {/* Main Content */}
-      <main className="flex-1 p-8">
-        <h2 className="text-2xl font-bold mb-6">Ad Visibility</h2>
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-300 max-w-6xl mx-auto w-full">
-          <div className="overflow-x-auto">
-            <table className="min-w-[900px] min-w-max border text-xs bg-white rounded-lg">
-              <thead className="bg-gray-800 text-white">
-                <tr className="sticky top-0 z-30 bg-gray-800">
-                  <th className="px-2 py-2 text-left font-bold sticky left-0 z-20 bg-gray-800" style={{ minWidth: '180px', width: '180px' }}>App Name</th>
-                  <th className="px-2 py-2 text-left font-bold sticky left-[180px] z-20 bg-gray-800" style={{ minWidth: '180px', width: '180px' }}>Campaign</th>
-                  {allDates.map(date => (
-                    <th key={date} className="px-2 py-2 font-bold text-center bg-gray-800 whitespace-nowrap">{date}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(grouped).filter(app => selectedApps.includes(app)).map(app => (
-                  Object.keys(grouped[app]).map((campaign, j) => (
-                    <tr key={app + campaign} className="border-b last:border-b-0 hover:bg-gray-50">
-                      {j === 0 ? (
-                        <td rowSpan={Object.keys(grouped[app]).length} className="px-2 py-2 text-indigo-700 font-bold sticky left-0 z-10 bg-white align-top text-lg" style={{ minWidth: '180px', width: '180px' }}>{app}</td>
-                      ) : null}
-                      <td className="px-2 py-2 text-gray-800 sticky left-[180px] z-10 bg-white" style={{ minWidth: '180px', width: '180px' }}>{campaign}</td>
-                      {allDates.map(date => {
-                        const v = grouped[app][campaign][date];
-                        return <td key={date} className="px-2 py-2 text-center text-gray-900">{v !== null && v !== undefined ? v.toFixed(2) + "%" : "-"}</td>;
-                      })}
-                    </tr>
-                  ))
-                ))}
-              </tbody>
-            </table>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-8"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-green-500/20 rounded-lg">
+              <EyeIcon className="h-8 w-8 text-green-400" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Ad Visibility</h1>
+              <p className="text-slate-300 mt-1">Track ad visibility percentages across campaigns and dates</p>
+            </div>
           </div>
-        </div>
-      </main>
+          
+          <div className="flex flex-wrap gap-3">
+            <Badge variant="secondary" className="bg-green-500/20 text-green-300 border-green-500/30">
+              <EyeIcon className="h-4 w-4 mr-1" />
+              Visibility Tracking
+            </Badge>
+            <Badge variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+              <ChartBarSquareIcon className="h-4 w-4 mr-1" />
+              {totalCampaigns} Campaigns
+            </Badge>
+            <Badge variant="secondary" className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+              <DevicePhoneMobileIcon className="h-4 w-4 mr-1" />
+              {uniqueApps} Apps
+            </Badge>
+            <Badge variant="secondary" className="bg-orange-500/20 text-orange-300 border-orange-500/30">
+              <CalendarIcon className="h-4 w-4 mr-1" />
+              {allDates.length} Days
+            </Badge>
+          </div>
+        </motion.div>
+
+        {/* Visibility Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700/50 p-6">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-white mb-2">Campaign Visibility Matrix</h2>
+              <p className="text-slate-400 text-sm">
+                Daily visibility percentages for each campaign across all apps and dates
+              </p>
+            </div>
+            
+            <div className="overflow-x-auto rounded-lg border border-slate-600">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-700/50">
+                  <tr className="sticky top-0 z-30">
+                    <th className="px-4 py-3 text-left font-semibold text-white sticky left-0 z-20 bg-slate-700/50 border-r border-slate-600" style={{ minWidth: '180px', width: '180px' }}>
+                      App Name
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-white sticky left-[180px] z-20 bg-slate-700/50 border-r border-slate-600" style={{ minWidth: '200px', width: '200px' }}>
+                      Campaign
+                    </th>
+                    {allDates.map(date => (
+                      <th key={date} className="px-3 py-3 font-semibold text-center text-white whitespace-nowrap border-r border-slate-600 last:border-r-0">
+                        {date}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-slate-800/30">
+                  {Object.keys(grouped).filter(app => selectedApps.includes(app)).map(app => (
+                    Object.keys(grouped[app]).map((campaign, j) => (
+                      <tr key={app + campaign} className="border-b border-slate-600/50 last:border-b-0 hover:bg-slate-700/30 transition-colors">
+                        {j === 0 ? (
+                          <td rowSpan={Object.keys(grouped[app]).length} className="px-4 py-3 text-blue-300 font-semibold sticky left-0 z-10 bg-slate-800/50 align-top border-r border-slate-600" style={{ minWidth: '180px', width: '180px' }}>
+                            {app}
+                          </td>
+                        ) : null}
+                        <td className="px-4 py-3 text-slate-200 sticky left-[180px] z-10 bg-slate-800/50 border-r border-slate-600" style={{ minWidth: '200px', width: '200px' }}>
+                          {campaign}
+                        </td>
+                        {allDates.map(date => {
+                          const v = grouped[app][campaign][date];
+                          const hasValue = v !== null && v !== undefined;
+                          return (
+                            <td key={date} className="px-3 py-3 text-center border-r border-slate-600/30 last:border-r-0">
+                              {hasValue ? (
+                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                  v >= 80 ? 'bg-green-500/20 text-green-300' :
+                                  v >= 60 ? 'bg-yellow-500/20 text-yellow-300' :
+                                  v >= 40 ? 'bg-orange-500/20 text-orange-300' :
+                                  'bg-red-500/20 text-red-300'
+                                }`}>
+                                  {v.toFixed(1)}%
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">-</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
-} 
+}

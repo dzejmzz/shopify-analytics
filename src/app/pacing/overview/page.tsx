@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { DateRange } from 'react-date-range';
 import { format, parse, startOfMonth, subDays } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import {
@@ -11,57 +12,66 @@ import {
   ChartBarIcon,
   CurrencyDollarIcon,
   ArrowTrendingUpIcon,
-  EyeIcon
+  EyeIcon,
+  ChevronDownIcon,
+  CalendarDaysIcon,
+  ArrowTrendingDownIcon,
+  ClockIcon,
+  ChartPieIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { fetchPacingRaw } from '../../../utils/pacingraw';
 import type { PacingRawRow } from '../../../utils/pacingraw';
+import { Card } from '../../../components/ui/Card';
+import { Button } from '../../../components/ui/Button';
+import { Badge } from '../../../components/ui/Badge';
+import { cn } from '../../../lib/utils';
 
 const ALL_METRICS = [
-  { key: "impressions", csvKey: "Imps", label: "Impressions", format: "NUMBER" },
-  { key: "clicks", csvKey: "Clicks", label: "Clicks", format: "NUMBER" },
-  { key: "installs", csvKey: "Installs", label: "Installs", format: "NUMBER" },
-  { key: "customers", csvKey: "Customers", label: "Customers", format: "NUMBER" },
-  { key: "revenue", csvKey: "Revenue", label: "Revenue", format: "USD" },
-  { key: "spend", csvKey: "Spend", label: "Spend", format: "USD" },
-  { key: "ctr", label: "CTR", format: "PERCENTAGE", compute: (row: any) => {
+  { key: "impressions", csvKey: "Imps", label: "Impressions", format: "NUMBER", icon: EyeIcon },
+  { key: "clicks", csvKey: "Clicks", label: "Clicks", format: "NUMBER", icon: ChartBarIcon },
+  { key: "installs", csvKey: "Installs", label: "Installs", format: "NUMBER", icon: ArrowTrendingUpIcon },
+  { key: "customers", csvKey: "Customers", label: "Customers", format: "NUMBER", icon: HomeIcon },
+  { key: "revenue", csvKey: "Revenue", label: "Revenue", format: "USD", icon: CurrencyDollarIcon },
+  { key: "spend", csvKey: "Spend", label: "Spend", format: "USD", icon: CurrencyDollarIcon },
+  { key: "ctr", label: "CTR", format: "PERCENTAGE", icon: ChartPieIcon, compute: (row: any) => {
     const imps = Number(row["Imps"]);
     const clicks = Number(row["Clicks"]);
     return imps ? clicks / imps : 0;
   } },
-  { key: "install_rate", label: "Install Rate", format: "PERCENTAGE", compute: (row: any) => {
+  { key: "install_rate", label: "Install Rate", format: "PERCENTAGE", icon: ArrowTrendingUpIcon, compute: (row: any) => {
     const imps = Number(row["Imps"]);
     const installs = Number(row["Installs"]);
     return imps ? installs / imps : 0;
   } },
-  { key: "conversion_rate", label: "Conversion Rate", format: "PERCENTAGE", compute: (row: any) => {
+  { key: "conversion_rate", label: "Conversion Rate", format: "PERCENTAGE", icon: ChartPieIcon, compute: (row: any) => {
     const installs = Number(row["Installs"]);
     const customers = Number(row["Customers"]);
     return installs ? customers / installs : 0;
   } },
-  { key: "profit", label: "Profit", format: "USD", compute: (row: any) => {
+  { key: "profit", label: "Profit", format: "USD", icon: CurrencyDollarIcon, compute: (row: any) => {
     const revenue = cleanNumber(row["Revenue"]);
     const cost = cleanNumber(row["Spend"]);
     return revenue - cost;
   } },
-  { key: "roas", label: "ROAS", format: "PERCENTAGE", compute: (row: any) => {
+  { key: "roas", label: "ROAS", format: "PERCENTAGE", icon: ArrowTrendingUpIcon, compute: (row: any) => {
     const cost = cleanNumber(row["Spend"]);
     const revenue = cleanNumber(row["Revenue"]);
     return cost ? revenue / cost : 0;
   } },
-  { key: "cpc", label: "CPC", format: "USD", compute: (row: any) => {
-    const clicks = cleanNumber(row["Clicks"]);
+  { key: "cpc", label: "CPC", format: "USD", icon: CurrencyDollarIcon, compute: (row: any) => {
     const cost = cleanNumber(row["Spend"]);
+    const clicks = Number(row["Clicks"]);
     return clicks ? cost / clicks : 0;
   } },
-  { key: "cpi", label: "CPI", format: "USD", compute: (row: any) => {
-    const installs = cleanNumber(row["Installs"]);
+  { key: "cpi", label: "CPI", format: "USD", icon: CurrencyDollarIcon, compute: (row: any) => {
     const cost = cleanNumber(row["Spend"]);
+    const installs = Number(row["Installs"]);
     return installs ? cost / installs : 0;
   } },
-  { key: "cpa", label: "CPA", format: "USD", compute: (row: any) => {
-    const customers = cleanNumber(row["Customers"]);
+  { key: "cpa", label: "CPA", format: "USD", icon: CurrencyDollarIcon, compute: (row: any) => {
     const cost = cleanNumber(row["Spend"]);
+    const customers = Number(row["Customers"]);
     return customers ? cost / customers : 0;
   } },
 ];
@@ -257,193 +267,401 @@ export default function PacingOverview() {
   });
 
   return (
-    <div className="flex min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Main Content */}
-      <main className="flex-1 flex justify-center items-start p-10">
-        <div className="w-full max-w-[2200px]">
-          {/* Controls */}
-          <div className="flex flex-col md:flex-row md:items-end gap-4 mb-8">
-            {/* App Picker (styled dropdown) */}
-            <div className="flex flex-col relative" style={{ minWidth: 180 }} ref={appDropdownRef}>
-              <label className="text-sm mb-1">App</label>
-              <button
-                className="rounded px-2 py-1 bg-white text-black border border-gray-300 min-w-[180px] text-left h-[44px] flex items-center"
-                onClick={() => setShowAppDropdown(v => !v)}
-                type="button"
-              >
-                {appNames.find(app => app === selectedApp) || "Select app"}
-              </button>
-              {showAppDropdown && (
-                <div className="absolute z-10 mt-1 bg-white text-black border rounded shadow-lg w-full max-h-60 overflow-y-auto flex flex-col" style={{paddingBottom: 48}}>
-                  <div className="overflow-y-auto" style={{maxHeight: 180}}>
-                    {appNames.map(app => (
-                      <label key={app} className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={pendingApp === app}
-                          onChange={() => setPendingApp(app)}
-                          className="accent-blue-600 mr-2"
-                          name="app-picker"
-                        />
-                        <span>{app}</span>
-                      </label>
-                    ))}
+      <main className="flex-1 p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Header Section */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
+          >
+            <div className="space-y-2">
+              <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Pacing Overview
+              </h1>
+              <p className="text-slate-400 text-lg">
+                Monitor your campaign performance and pacing metrics in real-time
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge variant="gradient" size="lg" className="flex items-center gap-2">
+                <ClockIcon className="w-4 h-4" />
+                Live Data
+              </Badge>
+              <Badge variant="outline" size="lg">
+                {filteredData.length} Records
+              </Badge>
+            </div>
+          </motion.div>
+
+          {/* Controls Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <Card className="p-6">
+              <div className="flex flex-col lg:flex-row lg:items-end gap-6">
+                {/* App Picker */}
+                <div className="flex flex-col space-y-2 min-w-[200px]" ref={appDropdownRef}>
+                  <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <Squares2X2Icon className="w-4 h-4" />
+                    Application
+                  </label>
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAppDropdown(v => !v)}
+                      className="w-full justify-between h-12 text-left"
+                    >
+                      <span className="truncate">{selectedApp}</span>
+                      <ChevronDownIcon className={cn("w-4 h-4 transition-transform", showAppDropdown && "rotate-180")} />
+                    </Button>
+                    <AnimatePresence>
+                      {showAppDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute z-20 mt-2 w-full bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-xl max-h-60 overflow-hidden"
+                        >
+                          <div className="overflow-y-auto max-h-48 p-2">
+                            {appNames.map(app => (
+                              <label key={app} className="flex items-center p-3 hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors">
+                                <input
+                                  type="radio"
+                                  checked={pendingApp === app}
+                                  onChange={() => setPendingApp(app)}
+                                  className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 focus:ring-blue-500 focus:ring-2 mr-3"
+                                  name="app-picker"
+                                />
+                                <span className="text-slate-200 truncate">{app}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="border-t border-slate-700 p-2">
+                            <Button onClick={handleAppSave} className="w-full">
+                              Apply Selection
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <button
-                    className="w-full bg-blue-600 text-white py-2 rounded-b hover:bg-blue-700 sticky bottom-0 left-0"
-                    style={{position: 'absolute', bottom: 0, left: 0}}
-                    onClick={handleAppSave}
-                  >Save</button>
                 </div>
-              )}
-            </div>
-            {/* Date Range Picker (single dropdown calendar) */}
-            <div className="flex flex-col relative" style={{ minWidth: 220 }} ref={dateDropdownRef}>
-              <label className="text-sm mb-1">Date Range</label>
-              <button
-                className="flex gap-2 items-center bg-white text-black rounded px-3 py-2 h-[44px] border border-gray-300 min-w-[220px] text-left"
-                onClick={() => setShowDateDropdown(v => !v)}
-                type="button"
-              >
-                {format(parse(dateRange.start, 'dd/MM/yyyy', new Date()), 'MMM dd, yyyy')} - {format(parse(dateRange.end, 'dd/MM/yyyy', new Date()), 'MMM dd, yyyy')}
-              </button>
-              {showDateDropdown && allDates.length > 0 && (
-                <div className="absolute z-20 mt-2 bg-white text-black border rounded shadow-lg">
-                  <DateRange
-                    ranges={range}
-                    onChange={handleDateRangeChange}
-                    moveRangeOnFirstSelection={false}
-                    months={1}
-                    direction="horizontal"
-                    rangeColors={["#2563eb"]}
-                    minDate={parse(allDates[0], 'dd/MM/yyyy', new Date())}
-                    maxDate={parse(allDates[allDates.length-1], 'dd/MM/yyyy', new Date())}
-                  />
-                </div>
-              )}
-            </div>
-            {/* Metrics Picker (custom dropdown) */}
-            <div className="flex flex-col relative" style={{ minWidth: 180 }} ref={metricsDropdownRef}>
-              <label className="text-sm mb-1">Metrics</label>
-              <button
-                className="rounded px-2 py-1 bg-white text-black border border-gray-300 min-w-[180px] text-left h-[44px] flex items-center"
-                onClick={() => setShowMetricsDropdown(v => !v)}
-                type="button"
-              >
-                {selectedMetrics.map(m => ALL_METRICS.find(am => am.key === m)?.label).join(", ") || "Select metrics"}
-              </button>
-              {showMetricsDropdown && (
-                <div className="absolute z-10 mt-1 bg-white text-black border rounded shadow-lg w-full max-h-60 overflow-y-auto flex flex-col" style={{paddingBottom: 48}}>
-                  <div className="overflow-y-auto" style={{maxHeight: 180}}>
-                    {ALL_METRICS.map(metric => (
-                      <label key={metric.key} className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={pendingMetrics.includes(metric.key)}
-                          onChange={() => toggleMetric(metric.key)}
-                          disabled={!pendingMetrics.includes(metric.key) && pendingMetrics.length === 4}
-                          className="accent-blue-600 mr-2"
-                        />
-                        <span>{metric.label}</span>
-                      </label>
-                    ))}
+
+                {/* Date Range Picker */}
+                <div className="flex flex-col space-y-2 min-w-[280px]" ref={dateDropdownRef}>
+                  <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <CalendarDaysIcon className="w-4 h-4" />
+                    Date Range
+                  </label>
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowDateDropdown(v => !v)}
+                      className="w-full justify-between h-12 text-left"
+                    >
+                      <span>
+                        {format(parse(dateRange.start, 'dd/MM/yyyy', new Date()), 'MMM dd, yyyy')} - {format(parse(dateRange.end, 'dd/MM/yyyy', new Date()), 'MMM dd, yyyy')}
+                      </span>
+                      <ChevronDownIcon className={cn("w-4 h-4 transition-transform", showDateDropdown && "rotate-180")} />
+                    </Button>
+                    <AnimatePresence>
+                      {showDateDropdown && allDates.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute z-20 mt-2 bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-xl"
+                        >
+                          <DateRange
+                            ranges={range}
+                            onChange={handleDateRangeChange}
+                            moveRangeOnFirstSelection={false}
+                            months={1}
+                            direction="horizontal"
+                            rangeColors={["#3b82f6"]}
+                            minDate={parse(allDates[0], 'dd/MM/yyyy', new Date())}
+                            maxDate={parse(allDates[allDates.length-1], 'dd/MM/yyyy', new Date())}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <button
-                    className="w-full bg-blue-600 text-white py-2 rounded-b hover:bg-blue-700 sticky bottom-0 left-0"
-                    style={{position: 'absolute', bottom: 0, left: 0}}
-                    onClick={handleMetricSave}
-                  >Save</button>
                 </div>
-              )}
-            </div>
-          </div>
-          {/* Metric cards (only 4) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {ALL_METRICS.filter(m => selectedMetrics.includes(m.key)).map((meta, i) => {
-              const metric = meta.key;
-              let value: number | undefined = undefined;
-              if (filteredData.length) {
-                const lastDate = allDates[allDates.length-1];
-                const lastDayRows = rawRows.filter(row => String(row.Date) === lastDate && (selectedApp === 'All Apps' || row["App Name"] === selectedApp));
-                if (lastDayRows.length) {
-                  if (metric === 'ctr') {
-                    value = computeTotalRatio(lastDayRows, 'Clicks', 'Imps');
-                  } else if (metric === 'install_rate') {
-                    value = computeTotalRatio(lastDayRows, 'Installs', 'Clicks');
-                  } else if (metric === 'conversion_rate') {
-                    value = computeTotalRatio(lastDayRows, 'Customers', 'Installs');
-                  } else if (metric === 'profit') {
-                    const totalRevenue = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Revenue']), 0);
-                    const totalSpend = lastDayRows.reduce((sum, row) => sum + cleanNumber(row['Spend']), 0);
-                    value = totalRevenue - totalSpend;
-                  } else if (metric === 'roas') {
-                    value = computeTotalRatio(lastDayRows, 'Revenue', 'Spend');
-                  } else if (metric === 'cpc') {
-                    value = computeTotalRatio(lastDayRows, 'Spend', 'Clicks');
-                  } else if (metric === 'cpi') {
-                    value = computeTotalRatio(lastDayRows, 'Spend', 'Installs');
-                  } else if (metric === 'cpa') {
-                    value = computeTotalRatio(lastDayRows, 'Spend', 'Customers');
-                  } else {
-                    if (meta.csvKey) {
-                      value = lastDayRows.reduce((sum, row) => sum + cleanNumber(row[meta.csvKey!]), 0);
-                    } else {
-                      value = 0;
-                    }
-                  }
+
+                {/* Metrics Picker */}
+                <div className="flex flex-col space-y-2 min-w-[250px]" ref={metricsDropdownRef}>
+                  <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <ChartBarIcon className="w-4 h-4" />
+                    Metrics
+                  </label>
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowMetricsDropdown(v => !v)}
+                      className="w-full justify-between h-12 text-left"
+                    >
+                      <span className="truncate">
+                        {selectedMetrics.map(m => ALL_METRICS.find(am => am.key === m)?.label).join(", ") || "Select metrics"}
+                      </span>
+                      <ChevronDownIcon className={cn("w-4 h-4 transition-transform", showMetricsDropdown && "rotate-180")} />
+                    </Button>
+                    <AnimatePresence>
+                      {showMetricsDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute z-20 mt-2 w-full bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-xl max-h-80 overflow-hidden"
+                        >
+                          <div className="overflow-y-auto max-h-60 p-2">
+                            {ALL_METRICS.map(metric => (
+                              <label key={metric.key} className="flex items-center p-3 hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors">
+                                <input
+                                  type="checkbox"
+                                  checked={pendingMetrics.includes(metric.key)}
+                                  onChange={() => toggleMetric(metric.key)}
+                                  disabled={!pendingMetrics.includes(metric.key) && pendingMetrics.length === 4}
+                                  className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 focus:ring-blue-500 focus:ring-2 mr-3 rounded"
+                                />
+                                <metric.icon className="w-4 h-4 text-slate-400 mr-2" />
+                                <span className="text-slate-200">{metric.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="border-t border-slate-700 p-2">
+                            <Button onClick={handleMetricSave} className="w-full">
+                              Apply Metrics
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setPendingMetrics(DEFAULT_METRICS);
+                      setSelectedMetrics(DEFAULT_METRICS);
+                      setActiveGraphMetrics(DEFAULT_METRICS);
+                    }}
+                  >
+                    Default
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const allKeys = ALL_METRICS.slice(0, 4).map(m => m.key);
+                      setPendingMetrics(allKeys);
+                      setSelectedMetrics(allKeys);
+                      setActiveGraphMetrics(allKeys);
+                    }}
+                  >
+                    All
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Key Metrics Grid */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+          >
+            {selectedMetrics.map((metric, index) => {
+              const meta = ALL_METRICS.find(m => m.key === metric);
+              const isActive = activeGraphMetrics.includes(metric);
+              
+              // Calculate value for the last available date
+              const lastRow = filteredData[filteredData.length - 1];
+              let value: string | number = '-';
+              if (lastRow && meta) {
+                if (meta.compute) {
+                  value = meta.compute(lastRow);
+                } else if (meta.csvKey && lastRow[meta.csvKey] !== undefined) {
+                  value = lastRow[meta.csvKey];
                 }
               }
-              const isActive = activeGraphMetrics.includes(metric);
+
+              // Calculate trend (compare with previous day)
+              const prevRow = filteredData[filteredData.length - 2];
+              let trend = 0;
+              if (lastRow && prevRow && meta) {
+                let currentVal = 0;
+                let prevVal = 0;
+                
+                if (meta.compute) {
+                  currentVal = meta.compute(lastRow);
+                  prevVal = meta.compute(prevRow);
+                } else if (meta.csvKey) {
+                  currentVal = Number(lastRow[meta.csvKey]) || 0;
+                  prevVal = Number(prevRow[meta.csvKey]) || 0;
+                }
+                
+                if (prevVal !== 0) {
+                  trend = ((currentVal - prevVal) / prevVal) * 100;
+                }
+              }
+
               return (
-                <button
+                <motion.div
                   key={metric}
-                  onClick={() => toggleGraphMetric(metric)}
-                  className={`rounded-2xl p-6 flex flex-col gap-2 shadow-lg transition-colors border-2 ${isActive ? 'bg-blue-600 border-blue-400 text-white' : 'bg-black border-gray-700 text-gray-200'} ${activeGraphMetrics.length === 4 && !isActive ? 'opacity-60 cursor-not-allowed' : 'hover:bg-blue-900 hover:border-blue-400'}`}
-                  disabled={!isActive && activeGraphMetrics.length === 4}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <div className="text-lg font-semibold mb-1">{meta?.label}</div>
-                  <div className="text-3xl font-bold">{formatValue(value, meta?.format || "NUMBER")}</div>
-                </button>
+                  <Card
+                    className={cn(
+                      "p-6 cursor-pointer transition-all duration-300 hover:shadow-xl",
+                      isActive 
+                        ? "bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-blue-500/50 shadow-blue-500/25" 
+                        : "hover:border-slate-600",
+                      activeGraphMetrics.length === 4 && !isActive && "opacity-60 cursor-not-allowed"
+                    )}
+                    onClick={() => toggleGraphMetric(metric)}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        {meta?.icon && <meta.icon className="w-5 h-5 text-blue-400" />}
+                        <h3 className="font-semibold text-slate-200">{meta?.label}</h3>
+                      </div>
+                      {isActive && (
+                        <Badge variant="primary" size="sm">
+                          Active
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="text-2xl lg:text-3xl font-bold text-white">
+                        {formatValue(value, meta?.format || "NUMBER")}
+                      </div>
+                      
+                      {trend !== 0 && (
+                        <div className={cn(
+                          "flex items-center gap-1 text-sm",
+                          trend > 0 ? "text-green-400" : "text-red-400"
+                        )}>
+                          {trend > 0 ? (
+                            <ArrowTrendingUpIcon className="w-4 h-4" />
+                          ) : (
+                            <ArrowTrendingDownIcon className="w-4 h-4" />
+                          )}
+                          <span>{Math.abs(trend).toFixed(1)}%</span>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                </motion.div>
               );
             })}
-          </div>
-          {/* Main chart and tabs */}
-          <div className="bg-gray-800 rounded-2xl p-6 mb-8 shadow-lg w-full">
-            <div className="flex gap-8 mb-4">
-              {activeGraphMetrics.map(metric => {
-                const meta = ALL_METRICS.find(m => m.key === metric);
-                return (
-                  <div key={metric} className="font-bold text-xl text-blue-400 border-b-2 border-blue-400 pb-2">
-                    {meta?.label}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="w-full h-[500px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <XAxis dataKey="date" stroke="#a3d900" />
-                  <YAxis stroke="#a3d900" />
-                  <Tooltip
-                    formatter={(value: any, name: string) => {
-                      const meta = ALL_METRICS.find(m => m.key === name);
-                      // For percentage, value is already multiplied by 100
-                      if (meta?.format === 'PERCENTAGE') {
-                        return `${Number(value).toFixed(2)}%`;
-                      }
-                      return formatValue(value, meta?.format || "NUMBER");
-                    }}
-                  />
-                  <Legend />
-                  {activeGraphMetrics.map((metric, i) => (
-                    <Line key={metric} type="monotone" dataKey={metric} stroke={["#3b82f6","#a259f7","#22d3ee","#a3d900"][i%4]} strokeWidth={3} dot={{ r: 6, fill: '#fff' }} />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          </motion.div>
+
+          {/* Chart Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <Card className="p-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-2">Performance Trends</h2>
+                  <p className="text-slate-400">Track your key metrics over time</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant="secondary" size="sm">
+                    {activeGraphMetrics.length} Metrics
+                  </Badge>
+                  <Badge variant="outline" size="sm">
+                    {chartData.length} Data Points
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Active Metrics Tabs */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {activeGraphMetrics.map(metric => {
+                  const meta = ALL_METRICS.find(m => m.key === metric);
+                  return (
+                    <Badge key={metric} variant="primary" size="lg" className="flex items-center gap-2">
+                      {meta?.icon && <meta.icon className="w-4 h-4" />}
+                      {meta?.label}
+                    </Badge>
+                  );
+                })}
+              </div>
+
+              {/* Chart */}
+              <div className="w-full h-[500px] bg-slate-800/30 rounded-lg p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#94a3b8" 
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      stroke="#94a3b8" 
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                        border: '1px solid rgba(71, 85, 105, 0.5)',
+                        borderRadius: '8px',
+                        color: '#f1f5f9'
+                      }}
+                      formatter={(value: any, name: string) => {
+                        const meta = ALL_METRICS.find(m => m.key === name);
+                        if (meta?.format === 'PERCENTAGE') {
+                          return `${Number(value).toFixed(2)}%`;
+                        }
+                        return formatValue(value, meta?.format || "NUMBER");
+                      }}
+                    />
+                    <Legend />
+                    {activeGraphMetrics.map((metric, i) => (
+                      <Line 
+                        key={metric} 
+                        type="monotone" 
+                        dataKey={metric} 
+                        stroke={["#3b82f6","#8b5cf6","#06b6d4","#10b981"][i%4]} 
+                        strokeWidth={3} 
+                        dot={{ r: 4, fill: '#1e293b', strokeWidth: 2 }} 
+                        activeDot={{ r: 6, fill: '#3b82f6', strokeWidth: 2 }}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </motion.div>
         </div>
       </main>
     </div>
   );
-} 
+}

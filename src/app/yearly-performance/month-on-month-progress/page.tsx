@@ -1,6 +1,22 @@
 "use client";
-import NavBar from "../../../components/NavBar";
 import React, { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Card } from "../../../components/ui/Card";
+import { Badge } from "../../../components/ui/Badge";
+import Link from 'next/link';
+import {
+  HomeIcon,
+  ChartBarIcon,
+  CalendarIcon,
+  ArrowTrendingUpIcon,
+  Squares2X2Icon,
+  ChevronDownIcon,
+  CheckIcon,
+  ChartPieIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  MinusIcon
+} from '@heroicons/react/24/outline';
 
 type ChangeRow = {
   impressions?: string;
@@ -167,7 +183,6 @@ const data: DataRow[] = [
       cpa: "-1.62%",
     },
   },
-  // Add more app data here as needed
 ];
 
 const columns = [
@@ -188,16 +203,37 @@ const columns = [
   { key: "cpa", label: "CPA" },
 ];
 
-function getChangeColor(val: string | undefined) {
-  if (!val || val === "") return "";
-  if (val === "0%" || val === "0.00%") return "text-gray-500";
-  if (val.startsWith("-")) return "text-red-600 font-bold";
-  return "text-green-700 font-bold";
+const sidebarItems = [
+  { name: "Overview", icon: ChartBarIcon, href: "/yearly-performance/overview" },
+  { name: "Home", icon: HomeIcon, href: "/yearly-performance/home" },
+  { name: "Month to Month", icon: ArrowTrendingUpIcon, href: "/yearly-performance/month-to-month" },
+  { name: "Month on Month Progress", icon: ArrowTrendingUpIcon, href: "/yearly-performance/month-on-month-progress", active: true },
+  { name: "Country Split", icon: ChartPieIcon, href: "/yearly-performance/country-split" },
+  { name: "Device Split", icon: Squares2X2Icon, href: "/yearly-performance/device-split" },
+];
+
+function getChangeColor(val: string | undefined): string {
+  if (!val || val === "") return "text-slate-400";
+  if (val === "0%" || val === "0.00%") return "text-slate-400";
+  if (val.startsWith("-")) return "text-red-400";
+  return "text-green-400";
 }
 
-function AppMultiSelect({ selected, setSelected }: { selected: string[]; setSelected: (apps: string[]) => void }) {
+function getChangeIcon(val: string | undefined) {
+  if (!val || val === "" || val === "0%" || val === "0.00%") return MinusIcon;
+  if (val.startsWith("-")) return ArrowDownIcon;
+  return ArrowUpIcon;
+}
+
+interface AppMultiSelectProps {
+  selected: string[];
+  setSelected: (apps: string[]) => void;
+}
+
+function AppMultiSelect({ selected, setSelected }: AppMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -216,43 +252,46 @@ function AppMultiSelect({ selected, setSelected }: { selected: string[]; setSele
       setSelected([...selected, app]);
     }
   };
+
   let summary = allSelected
-    ? "All"
+    ? "All Apps"
     : selected.length === 0
-    ? "None"
+    ? "No Apps Selected"
     : selected.length === 1
-    ? appList.find(a => a === selected[0])
-    : `${selected.length} selected`;
+    ? selected[0]
+    : `${selected.length} Apps Selected`;
+
   return (
-    <div className="relative min-w-[180px]" ref={ref}>
+    <div className="relative min-w-[200px]" ref={ref}>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Apps</label>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="border rounded px-3 py-2 bg-white text-black w-full flex items-center justify-between"
+        className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 text-left text-white flex items-center justify-between hover:bg-slate-700 transition-colors"
       >
-        <span className="truncate text-left">App: <span className="font-semibold">{summary}</span></span>
-        <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        <span className="truncate">{summary}</span>
+        <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white border rounded shadow-lg max-h-60 overflow-y-auto text-black">
-          <label className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer text-black font-semibold border-b border-gray-200">
+        <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+          <label className="flex items-center px-4 py-3 hover:bg-slate-700 cursor-pointer text-white font-semibold border-b border-slate-600">
             <input
               type="checkbox"
               checked={allSelected}
               onChange={() => handleChange("All")}
-              className="accent-indigo-600 mr-2"
+              className="accent-blue-500 mr-3"
             />
-            <span className="truncate text-black">{allSelected ? "Deselect All" : "Select All"}</span>
+            <span className="truncate">{allSelected ? "Deselect All" : "Select All"}</span>
           </label>
           {appList.map(app => (
-            <label key={app} className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer text-black">
+            <label key={app} className="flex items-center px-4 py-3 hover:bg-slate-700 cursor-pointer text-white">
               <input
                 type="checkbox"
                 checked={selected.includes(app)}
                 onChange={() => handleChange(app)}
-                className="accent-indigo-600 mr-2"
+                className="accent-blue-500 mr-3"
               />
-              <span className="truncate text-black">{app}</span>
+              <span className="truncate">{app}</span>
             </label>
           ))}
         </div>
@@ -265,55 +304,183 @@ export default function YearlyPerformanceMonthOnMonth() {
   const [selectedApps, setSelectedApps] = useState<string[]>(appList);
   const filteredData = data.filter(row => selectedApps.includes(row.app));
 
+  const uniqueApps = Array.from(new Set(filteredData.map(row => row.app))).length;
+  const totalMonths = filteredData.length;
+  const totalMetrics = columns.length - 1; // Excluding month column
+
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <NavBar />
-      <div className="flex flex-col items-center justify-center min-h-[60vh] w-full">
-        <h1 className="text-4xl font-extrabold text-indigo-700 mb-4">Month on Month Progress</h1>
-        <div className="mb-6 w-full max-w-2xl flex flex-row items-center gap-4">
-          <AppMultiSelect selected={selectedApps} setSelected={setSelectedApps} />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex">
+      {/* Sidebar */}
+      <motion.aside
+        initial={{ x: -300, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        className="w-64 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700/50 flex flex-col px-4 py-6"
+      >
+        <Link href="/" className="flex items-center gap-3 mb-10 mt-2 group">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center font-bold text-xl text-white shadow-lg">
+            S
+          </div>
+          <span className="text-xl font-bold tracking-wide text-white group-hover:text-blue-300 transition-colors">
+            Shopify Analytics
+          </span>
+        </Link>
+        
+        <nav className="space-y-2">
+          {sidebarItems.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 ${
+                item.active
+                  ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-500/10'
+                  : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+              }`}
+            >
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <span className="truncate">{item.name}</span>
+            </Link>
+          ))}
+        </nav>
+      </motion.aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto">
+          <div className="container mx-auto px-6 py-8">
+            {/* Header */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="mb-8"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <ArrowTrendingUpIcon className="h-8 w-8 text-blue-400" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-white">Month-on-Month Progress</h1>
+                  <p className="text-slate-300 mt-1">Track detailed monthly performance with change indicators</p>
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-3">
+                <Badge variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+                  <ArrowTrendingUpIcon className="h-4 w-4 mr-1" />
+                  Progress Tracking
+                </Badge>
+                <Badge variant="secondary" className="bg-green-500/20 text-green-300 border-green-500/30">
+                  <Squares2X2Icon className="h-4 w-4 mr-1" />
+                  {uniqueApps} Apps
+                </Badge>
+                <Badge variant="secondary" className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                  <CalendarIcon className="h-4 w-4 mr-1" />
+                  {totalMonths} Records
+                </Badge>
+                <Badge variant="secondary" className="bg-orange-500/20 text-orange-300 border-orange-500/30">
+                  <ChartBarIcon className="h-4 w-4 mr-1" />
+                  {totalMetrics} Metrics
+                </Badge>
+              </div>
+            </motion.div>
+
+            {/* Controls */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="mb-8"
+            >
+              <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700/50 p-6">
+                <h2 className="text-xl font-semibold text-white mb-4">Filters</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <AppMultiSelect selected={selectedApps} setSelected={setSelectedApps} />
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Table */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700/50 p-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-white mb-2">Performance Data</h2>
+                  <p className="text-slate-300 text-sm">Monthly values with month-over-month change indicators</p>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm bg-slate-700/40 rounded-lg overflow-hidden">
+                    <thead>
+                      <tr className="border-b border-slate-600/50 bg-slate-600/50">
+                        <th className="text-left py-4 px-4 font-semibold text-slate-100 sticky left-0 bg-slate-600/60 backdrop-blur-sm z-10 min-w-[120px]">
+                          App / Month
+                        </th>
+                        {columns.slice(1).map(col => (
+                          <th key={col.key} className="text-center py-4 px-3 font-semibold text-slate-100 whitespace-nowrap min-w-[100px]">
+                            {col.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredData.map((row, i) => (
+                        <React.Fragment key={row.app + row.month}>
+                          {/* Main data row */}
+                          <tr className="border-b border-slate-600/30 hover:bg-slate-600/30 transition-colors">
+                            <td className="py-4 px-4 font-medium text-slate-100 sticky left-0 bg-slate-700/50 backdrop-blur-sm z-10">
+                              <div className="flex flex-col">
+                                <span className="text-slate-300 text-xs font-medium">{row.app}</span>
+                                <span className="text-slate-100 font-semibold">{row.month}</span>
+                              </div>
+                            </td>
+                            {columns.slice(1).map(col => {
+                              const value = row[col.key as keyof DataRow];
+                              return (
+                                <td key={col.key} className="py-4 px-3 text-center text-slate-200">
+                                  {typeof value === "string" ? value : ""}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                          
+                          {/* Change row - only show if change data exists */}
+                          {row.change && (
+                            <tr className="border-b border-slate-600/20 bg-slate-800/40">
+                              <td className="py-2 px-4 text-xs italic text-slate-300 sticky left-0 bg-slate-800/60 backdrop-blur-sm z-10">
+                                vs previous month
+                              </td>
+                              {columns.slice(1).map(col => {
+                                const changeVal = row.change![col.key as keyof ChangeRow];
+                                const colorClass = getChangeColor(changeVal);
+                                const Icon = getChangeIcon(changeVal);
+                                
+                                return (
+                                  <td key={col.key} className="py-2 px-3 text-center">
+                                    <div className={`flex items-center justify-center gap-1 ${colorClass}`}>
+                                      <Icon className="h-3 w-3" />
+                                      <span className="font-medium text-xs">
+                                        {changeVal || "-"}
+                                      </span>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </motion.div>
+          </div>
         </div>
-        <div className="overflow-x-auto w-full max-w-6xl">
-          <table className="min-w-full border border-gray-300 rounded-lg bg-white shadow">
-            <thead>
-              <tr className="bg-black text-white">
-                {columns.map(col => (
-                  <th key={col.key} className="px-3 py-2 text-xs font-bold border-b border-gray-200 text-center whitespace-nowrap">{col.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map((row, i) => (
-                <React.Fragment key={row.app + row.month}>
-                  <tr className="text-center border-b border-gray-100 hover:bg-indigo-50">
-                    {columns.map(col => {
-                      const value = row[col.key as keyof DataRow];
-                      return (
-                        <td key={col.key} className="px-3 py-2 text-sm whitespace-nowrap font-medium text-gray-900">
-                          {typeof value === "string" ? value : ""}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  {row.change && (
-                    <tr className="bg-blue-100 text-xs border-b border-gray-100">
-                      <td className="px-3 py-1 text-right font-semibold italic text-black">change from previous month %</td>
-                      {columns.slice(1).map(col => {
-                        const changeVal = row.change![col.key as keyof ChangeRow];
-                        return (
-                          <td key={col.key} className={`px-3 py-1 text-center ${getChangeColor(changeVal)}`}>
-                            {changeVal || ""}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
-} 
+}
