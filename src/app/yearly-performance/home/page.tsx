@@ -17,8 +17,8 @@ import {
   ChartPieIcon
 } from '@heroicons/react/24/outline';
 import { format, parse } from 'date-fns';
-import { fetchYearlyRaw } from '../../../utils/yearlyraw';
-import type { YearlyRawRow } from '../../../utils/yearlyraw';
+import { fetchUnifiedData, getMonthlyData, cleanNumber, computeTotalRatio } from '../../../utils/unifiedData';
+import type { UnifiedDataRow } from '../../../utils/unifiedData';
 
 const ALL_METRICS = [
   { key: "impressions", csvKey: "Imps", label: "Impressions", format: "NUMBER" },
@@ -40,26 +40,14 @@ const ALL_METRICS = [
 const DEFAULT_METRICS = ["installs", "install_rate", "cpi", "spend"];
 
 const sidebarItems = [
-  { name: "Overview", icon: ChartBarIcon, href: "/yearly-performance/overview" },
+  { name: "Performance Snapshot", icon: ChartBarIcon, href: "/yearly-performance/overview" },
   { name: "Home", icon: HomeIcon, href: "/yearly-performance/home", active: true },
-  { name: "Month to Month", icon: ArrowTrendingUpIcon, href: "/yearly-performance/month-to-month" },
-  { name: "Country Split", icon: ChartPieIcon, href: "/yearly-performance/country-split" },
-  { name: "Device Split", icon: Squares2X2Icon, href: "/yearly-performance/device-split" },
+  { name: "Monthly Trends", icon: ArrowTrendingUpIcon, href: "/yearly-performance/month-to-month" },
+  { name: "Geo Insights", icon: ChartPieIcon, href: "/yearly-performance/country-split" },
+  { name: "Device Performance", icon: Squares2X2Icon, href: "/yearly-performance/device-split" },
 ];
 
-function cleanNumber(val: any): number {
-  if (typeof val !== 'string' && typeof val !== 'number') return 0;
-  let str = String(val).replace(/[$,]/g, '').trim();
-  if (str === '' || str === '#DIV/0!' || str === 'NaN' || str === 'null' || str === 'undefined') return 0;
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
-}
-
-function computeTotalRatio(rows: any[], numeratorKey: string, denominatorKey: string): number {
-  const numerator = rows.reduce((sum, row) => sum + cleanNumber(row[numeratorKey]), 0);
-  const denominator = rows.reduce((sum, row) => sum + cleanNumber(row[denominatorKey]), 0);
-  return denominator ? numerator / denominator : 0;
-}
+// cleanNumber and computeTotalRatio are imported from unifiedData utility
 
 function formatValue(value: any, format: string): string {
   if (value === undefined || value === null || value === '-') return '-';
@@ -215,7 +203,7 @@ function MetricsDropdown({ label, selectedMetrics, onChange, maxSelection = 4 }:
 }
 
 export default function YearlyPerformanceHome() {
-  const [rawRows, setRawRows] = useState<YearlyRawRow[]>([]);
+  const [rawRows, setRawRows] = useState<UnifiedDataRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allMonths, setAllMonths] = useState<string[]>([]);
@@ -230,9 +218,11 @@ export default function YearlyPerformanceHome() {
   }, [rawRows]);
 
   useEffect(() => {
-    fetchYearlyRaw().then((data: YearlyRawRow[]) => {
-      setRawRows(data);
-      const months = Array.from(new Set(data.map(row => String(row["Month"])))).sort();
+    fetchUnifiedData().then((data: UnifiedDataRow[]) => {
+      // Convert to monthly data for trends analysis
+      const monthlyData = getMonthlyData(data);
+      setRawRows(monthlyData);
+      const months = Array.from(new Set(monthlyData.map(row => String(row["Month"])))).sort();
       setAllMonths(months);
       if (months.length > 0) {
         setDateRange({ start: months[0], end: months[months.length - 1] });
@@ -362,7 +352,7 @@ export default function YearlyPerformanceHome() {
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
               <span className="truncate">{item.name}</span>
-            </Link>
+        </Link>
           ))}
         </nav>
       </motion.aside>
@@ -381,12 +371,12 @@ export default function YearlyPerformanceHome() {
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-blue-500/20 rounded-lg">
                   <HomeIcon className="h-8 w-8 text-blue-400" />
-                </div>
+                  </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">Performance Dashboard</h1>
+                  <h1 className="text-3xl font-bold text-white">Trends & Insights</h1>
                   <p className="text-slate-300 mt-1">Your central hub for yearly performance insights</p>
                 </div>
-              </div>
+            </div>
               
               <div className="flex flex-wrap gap-3">
                 <Badge variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-500/30">
@@ -476,12 +466,12 @@ export default function YearlyPerformanceHome() {
                         <div className="text-2xl font-bold">{formatValue(value, metric.format)}</div>
                         {isActive && (
                           <div className="mt-2 text-xs text-blue-300">Active in chart</div>
-                        )}
-                      </div>
+              )}
+            </div>
                     </motion.button>
-                  );
-                })}
-              </div>
+              );
+            })}
+          </div>
             </motion.div>
 
             {/* Chart */}
@@ -497,7 +487,7 @@ export default function YearlyPerformanceHome() {
                     {activeGraphMetrics.map((metric, index) => {
                       const metricInfo = ALL_METRICS.find(m => m.key === metric);
                       const colors = ["#3b82f6", "#a259f7", "#22d3ee", "#a3d900"];
-                      return (
+                return (
                         <Badge 
                           key={metric} 
                           variant="secondary" 
@@ -506,14 +496,14 @@ export default function YearlyPerformanceHome() {
                         >
                           {metricInfo?.label}
                         </Badge>
-                      );
-                    })}
-                  </div>
+                );
+              })}
+            </div>
                 </div>
                 
                 <div className="h-[500px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
                       <XAxis 
                         dataKey="date" 
                         stroke="#94a3b8" 
@@ -527,19 +517,19 @@ export default function YearlyPerformanceHome() {
                         tickLine={false}
                         axisLine={false}
                       />
-                      <Tooltip
+                  <Tooltip
                         contentStyle={{
                           backgroundColor: '#1e293b',
                           border: '1px solid #475569',
                           borderRadius: '8px',
                           color: '#f1f5f9'
                         }}
-                        formatter={(value: any, name: string) => {
-                          const meta = ALL_METRICS.find(m => m.key === name);
+                    formatter={(value: any, name: string) => {
+                      const meta = ALL_METRICS.find(m => m.key === name);
                           return [formatValue(value, meta?.format || "NUMBER"), meta?.label];
-                        }}
-                      />
-                      <Legend />
+                    }}
+                  />
+                  <Legend />
                       {activeGraphMetrics.map((metric, i) => {
                         const colors = ["#3b82f6", "#a259f7", "#22d3ee", "#a3d900"];
                         return (
@@ -554,14 +544,14 @@ export default function YearlyPerformanceHome() {
                           />
                         );
                       })}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
               </Card>
             </motion.div>
           </div>
         </div>
       </main>
-    </div>
+      </div>
   );
-}
+} 

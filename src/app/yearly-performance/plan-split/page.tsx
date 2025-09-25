@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import { format, parse } from 'date-fns';
-import { fetchYearlyRaw } from '../../../utils/yearlyraw';
-import type { YearlyRawRow } from '../../../utils/yearlyraw';
+import { fetchUnifiedData, getMonthlyData, cleanNumber, computeTotalRatio } from '../../../utils/unifiedData';
+import type { UnifiedDataRow } from '../../../utils/unifiedData';
 import AIRecommendations from '../../../components/AIRecommendations';
 
 const ALL_METRICS = [
@@ -22,22 +22,12 @@ const ALL_METRICS = [
   { key: "cpa", csvKey: "Cost Per Customer", label: "CPA", format: "USD" },
 ];
 
-function cleanNumber(val: any) {
-  if (typeof val !== 'string' && typeof val !== 'number') return 0;
-  let str = String(val).replace(/[$,]/g, '').trim();
-  if (str === '' || str === '#DIV/0!' || str === 'NaN' || str === 'null' || str === 'undefined') return 0;
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
-}
+// cleanNumber is imported from unifiedData utility
 
-function computeTotalRatio(rows: any[], numeratorKey: string, denominatorKey: string) {
-  const numerator = rows.reduce((sum, row) => sum + cleanNumber(row[numeratorKey]), 0);
-  const denominator = rows.reduce((sum, row) => sum + cleanNumber(row[denominatorKey]), 0);
-  return denominator ? numerator / denominator : null;
-}
+// computeTotalRatio is imported from unifiedData utility
 
 export default function PlanSplit() {
-  const [rawRows, setRawRows] = React.useState<YearlyRawRow[]>([]);
+  const [rawRows, setRawRows] = React.useState<UnifiedDataRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [dateRange, setDateRange] = React.useState({ start: '', end: '' });

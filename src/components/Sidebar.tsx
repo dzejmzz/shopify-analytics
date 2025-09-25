@@ -11,9 +11,11 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { cn } from '../lib/utils';
+import { InfoTooltip } from './ui/Tooltip';
 
 interface SidebarSection {
   name: string;
@@ -29,45 +31,52 @@ interface SidebarSection {
 
 const sidebarSections: SidebarSection[] = [
   {
-    name: "Dashboard",
+    name: "Welcome Hub",
     icon: HomeIcon,
     href: "/",
-    description: "Main overview and analytics",
+    description: "Highlights of setup status and shortcuts to key reports.",
   },
   {
-    name: "Pacing",
+    name: "Current Performance",
     icon: ChartBarIcon,
-    href: "/pacing/overview",
+    href: "/current-performance",
     description: "Performance tracking and monitoring",
     children: [
-      { name: "Overview", href: "/pacing/overview", description: "General pacing metrics" },
-      { name: "App/Campaign Split", href: "/pacing/app-campaign-split", description: "Campaign performance breakdown" },
-      { name: "Install Tracker", href: "/pacing/install-tracker", description: "Installation tracking" },
-      { name: "Budget Tracker", href: "/pacing/budget-tracker", description: "Budget monitoring" },
-      { name: "Yesterday vs. Day Before", href: "/pacing/yesterday-vs-day-before", description: "Daily comparisons" },
-      { name: "Ad Visibility", href: "/pacing/ad-visibility", description: "Advertisement visibility metrics" },
+      { name: "Performance Snapshot", href: "/current-performance/snapshot", description: "Today's installs, spend, and pacing at a glance." },
+      { name: "Campaign Breakdown", href: "/current-performance/campaign-breakdown", description: "Compare performance across campaigns and apps." },
+      { name: "Keyword Breakdown", href: "/current-performance/keyword-breakdown", description: "Analyze performance by individual keywords and search terms." },
+      { name: "Installs Trend", href: "/current-performance/installs-trend", description: "Track installs day by day against targets." },
+      { name: "Budget Pacing", href: "/current-performance/budget-pacing", description: "Monitor spend vs. budget for the current month." },
+      { name: "Daily Changes", href: "/current-performance/daily-changes", description: "See differences between any two days." },
+      { name: "Visibility Metrics", href: "/current-performance/visibility-metrics", description: "Check ad impressions and share of visibility." },
     ],
   },
   {
-    name: "Yearly Performance",
+    name: "Trends & Insights",
     icon: CalendarIcon,
-    href: "/yearly-performance/overview",
+    href: "/trends-insights",
     description: "Annual performance analysis",
     children: [
-      { name: "Overview", href: "/yearly-performance/overview", description: "Annual summary" },
-      { name: "Month to Month", href: "/yearly-performance/month-to-month", description: "Monthly comparisons" },
-      { name: "Country Split", href: "/yearly-performance/country-split", description: "Geographic performance" },
-      { name: "Plan Split", href: "/yearly-performance/plan-split", description: "Plan-based analysis" },
-      { name: "Device Split", href: "/yearly-performance/device-split", description: "Device performance breakdown" },
+      { name: "Performance Snapshot", href: "/trends-insights/snapshot", description: "Highlights of yearly installs, spend, and ROAS trends." },
+      { name: "Monthly Trends", href: "/trends-insights/trends", description: "See month-over-month changes." },
+      { name: "Geo Insights", href: "/trends-insights/geo", description: "Compare installs and spend by country." },
+      { name: "Plan Performance", href: "/trends-insights/plans", description: "Measure results across pricing plans." },
+      { name: "Device Performance", href: "/trends-insights/devices", description: "Break down performance by device type." },
     ],
   },
   {
-    name: 'Search Term Report',
+    name: 'Keyword Analytics',
     icon: MagnifyingGlassIcon,
-    href: '/search-term/overview',
+    href: '/keyword-analytics',
     description: "Search term analytics",
     children: [
-      { name: 'Overview', href: '/search-term/overview', description: "Search term summary" },
+      { name: 'Performance Snapshot', href: '/keyword-analytics/snapshot', description: "Highlights of top keywords, match types, and changes." },
+      { name: 'Keyword Trends', href: '/keyword-analytics/trends', description: "Track keyword results month by month." },
+      { name: 'Geo Keyword Insights', href: '/keyword-analytics/geo', description: "See which terms work best in each country." },
+      { name: 'Keyword by Plan', href: '/keyword-analytics/plans', description: "Match search terms to subscription plans." },
+      { name: 'Keyword by Device', href: '/keyword-analytics/devices', description: "Check keyword results across devices." },
+      { name: 'Match Type Analysis', href: '/keyword-analytics/match-types', description: "Compare exact vs. broad match keywords." },
+      { name: 'Broad Match Performance', href: '/keyword-analytics/broad-performance', description: "Deep dive into broad match terms." },
     ],
   },
 ];
@@ -175,7 +184,7 @@ export default function Sidebar() {
                   
                   {!isCollapsed && (
                     <>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
                         <p className={cn(
                           "font-medium truncate",
                           isActive ? "text-white" : "text-blue-100 group-hover:text-white"
@@ -183,12 +192,13 @@ export default function Sidebar() {
                           {section.name}
                         </p>
                         {section.description && (
-                          <p className={cn(
-                            "text-xs truncate mt-0.5",
-                            isActive ? "text-blue-100" : "text-blue-300 group-hover:text-blue-200"
-                          )}>
-                            {section.description}
-                          </p>
+                          <InfoTooltip 
+                            content={section.description}
+                            iconClassName={cn(
+                              "flex-shrink-0",
+                              isActive ? "text-blue-200" : "text-blue-400 group-hover:text-blue-300"
+                            )}
+                          />
                         )}
                       </div>
                       
@@ -236,7 +246,7 @@ export default function Sidebar() {
                             pathname === child.href ? "bg-white" : "bg-blue-400 group-hover:bg-white"
                           )} />
                           
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 flex items-center gap-2">
                             <p className={cn(
                               "text-sm font-medium truncate",
                               pathname === child.href ? "text-white" : "text-blue-200 group-hover:text-white"
@@ -244,12 +254,13 @@ export default function Sidebar() {
                               {child.name}
                             </p>
                             {child.description && (
-                              <p className={cn(
-                                "text-xs truncate mt-0.5",
-                                pathname === child.href ? "text-blue-100" : "text-blue-300 group-hover:text-blue-200"
-                              )}>
-                                {child.description}
-                              </p>
+                              <InfoTooltip 
+                                content={child.description}
+                                iconClassName={cn(
+                                  "w-3 h-3 flex-shrink-0",
+                                  pathname === child.href ? "text-blue-200" : "text-blue-400 group-hover:text-blue-300"
+                                )}
+                              />
                             )}
                           </div>
                         </motion.div>

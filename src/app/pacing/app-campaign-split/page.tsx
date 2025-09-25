@@ -56,8 +56,8 @@ export default function AppCampaignSplitPage() {
               <Squares2X2Icon className="h-8 w-8 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">App/Campaign Split</h1>
-              <p className="text-slate-300 mt-1">Detailed breakdown of performance by app and campaign</p>
+              <h1 className="text-3xl font-bold text-white">Campaign Breakdown</h1>
+              <p className="text-slate-300 mt-1">Compare performance across campaigns and apps.</p>
             </div>
           </div>
           

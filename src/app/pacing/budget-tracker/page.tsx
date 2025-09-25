@@ -58,8 +58,8 @@ export default function BudgetTrackerPage() {
               <CurrencyDollarIcon className="h-8 w-8 text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Budget Tracker</h1>
-              <p className="text-slate-300 mt-1">Monitor spending patterns and budget allocation across campaigns</p>
+              <h1 className="text-3xl font-bold text-white">Budget Pacing</h1>
+              <p className="text-slate-300 mt-1">Monitor spend vs. budget for the current month.</p>
             </div>
           </div>
           

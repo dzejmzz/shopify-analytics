@@ -18,8 +18,8 @@ import {
   MinusIcon
 } from '@heroicons/react/24/outline';
 import { format, parse } from 'date-fns';
-import { fetchYearlyRaw } from '../../../utils/yearlyraw';
-import type { YearlyRawRow } from '../../../utils/yearlyraw';
+import { fetchUnifiedData, getMonthlyData, cleanNumber, computeTotalRatio } from '../../../utils/unifiedData';
+import type { UnifiedDataRow } from '../../../utils/unifiedData';
 
 const ALL_METRICS = [
   { key: "impressions", csvKey: "Impressions", label: "Impressions", format: "NUMBER" },
@@ -46,19 +46,7 @@ const sidebarItems = [
   { name: "Device Split", icon: Squares2X2Icon, href: "/yearly-performance/device-split" },
 ];
 
-function cleanNumber(val: any): number {
-  if (typeof val !== 'string' && typeof val !== 'number') return 0;
-  let str = String(val).replace(/[$,]/g, '').trim();
-  if (str === '' || str === '#DIV/0!' || str === 'NaN' || str === 'null' || str === 'undefined') return 0;
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
-}
-
-function computeTotalRatio(rows: any[], numeratorKey: string, denominatorKey: string): number | null {
-  const numerator = rows.reduce((sum, row) => sum + cleanNumber(row[numeratorKey]), 0);
-  const denominator = rows.reduce((sum, row) => sum + cleanNumber(row[denominatorKey]), 0);
-  return denominator ? numerator / denominator : null;
-}
+// cleanNumber and computeTotalRatio are imported from unifiedData utility
 
 function formatValue(value: any, format: string): string {
   if (value === undefined || value === null) return '-';
@@ -300,8 +288,8 @@ export default function MonthToMonth() {
                   <ArrowTrendingUpIcon className="h-8 w-8 text-blue-400" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">Month-to-Month Analysis</h1>
-                  <p className="text-slate-300 mt-1">Track performance changes across months with detailed comparisons</p>
+                  <h1 className="text-3xl font-bold text-white">Monthly Trends</h1>
+                  <p className="text-slate-300 mt-1">See month-over-month changes.</p>
                 </div>
               </div>
               

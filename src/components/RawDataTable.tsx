@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { fetchRawSheet } from '../utils/fetchRawSheet';
+import { fetchUnifiedData, getDailyData } from '../utils/unifiedData';
 import React from 'react';
 
 // Updated to use the provided published CSV link from Google Sheets
@@ -46,7 +46,7 @@ const ALL_METRICS = [
   { key: 'Revenue', label: 'Revenue', align: 'right', format: formatMoney },
   { key: 'Spend', label: 'Spend', align: 'right', format: formatMoney },
   { key: 'Profit', label: 'Profit', align: 'right', format: formatMoney },
-  { key: 'ROAS', label: 'ROAS', align: 'right', format: (v: number) => v.toFixed(2) },
+  { key: 'ROAS', label: 'ROAS', align: 'right', format: (v: number) => (v * 100).toFixed(2) + '%' },
   { key: 'CPC', label: 'CPC', align: 'right', format: formatMoney },
   { key: 'CPI', label: 'CPI', align: 'right', format: formatMoney },
   { key: 'CAC', label: 'CAC', align: 'right', format: formatMoney },
@@ -112,7 +112,12 @@ function CheckboxDropdown({ label, options, selected, setSelected }: { label: st
   );
 }
 
-export default function RawDataTable() {
+interface RawDataTableProps {
+  data?: any[];
+  allDates?: string[];
+}
+
+export default function RawDataTable({ data, allDates: propAllDates }: RawDataTableProps) {
   const [rows, setRows] = useState<any[]>([]);
   const [allDates, setAllDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -125,19 +130,38 @@ export default function RawDataTable() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    fetchRawSheet(CSV_URL)
-      .then((data) => {
-        setRows(data);
-        const dates = Array.from(new Set(data.map((row: any) => row.Date))).sort((a, b) => b.localeCompare(a));
+    if (data) {
+      // Use passed data if available
+      setRows(data);
+      
+      // Use provided dates if available, otherwise extract from data
+      if (propAllDates && propAllDates.length > 0) {
+        setAllDates(propAllDates);
+        setSelectedDate(propAllDates[propAllDates.length - 1]);
+      } else {
+        const dates = Array.from(new Set(data.map((row: any) => String(row.Date)))).sort();
         setAllDates(dates);
         setSelectedDate(dates[0]);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError("Failed to fetch data");
-        setLoading(false);
-      });
-  }, []);
+      }
+      setLoading(false);
+    } else {
+      // Fetch data if no data passed
+      fetchUnifiedData()
+        .then((data) => {
+          // Convert to daily data format
+          const dailyData = getDailyData(data);
+          setRows(dailyData);
+          const dates = Array.from(new Set(dailyData.map((row: any) => row.Date))).sort((a, b) => b.localeCompare(a));
+          setAllDates(dates);
+          setSelectedDate(dates[0]);
+          setLoading(false);
+        })
+        .catch((err) => {
+          setError("Failed to fetch data");
+          setLoading(false);
+        });
+    }
+  }, [data]);
 
   // Get all unique platforms for filter (must be before early returns)
   let allPlatforms: string[] = [];
@@ -468,7 +492,17 @@ export default function RawDataTable() {
                               if (metric.key === 'CAC') value = safeDivide(cleanNumber(row.Spend), cleanNumber(row.Customers));
                               if (metric.format) value = metric.format(value);
                               else value = value?.toLocaleString?.() ?? value;
-                              return <td key={metric.key} className={`px-2 py-2 text-${metric.align} text-gray-900`}>{value}</td>;
+                              
+                              // Add color coding for Profit column
+                              let profitClass = '';
+                              if (metric.key === 'Profit') {
+                                const profitValue = cleanNumber(row.Profit);
+                                if (profitValue > 0) profitClass = 'text-green-600 font-semibold';
+                                else if (profitValue < 0) profitClass = 'text-red-600 font-semibold';
+                                else profitClass = 'text-yellow-600 font-semibold';
+                              }
+                              
+                              return <td key={metric.key} className={`px-2 py-2 text-${metric.align} ${profitClass || 'text-gray-900'}`}>{value}</td>;
                             })}
                           </tr>
                         );
@@ -481,7 +515,17 @@ export default function RawDataTable() {
                           let value = appTotals[metric.key];
                           if (metric.format) value = metric.format(value);
                           else value = value?.toLocaleString?.() ?? value;
-                          return <td key={metric.key} className={`px-2 py-2 text-right text-black`}>{value}</td>;
+                          
+                          // Add color coding for Profit column in subtotals
+                          let profitClass = '';
+                          if (metric.key === 'Profit') {
+                            const profitValue = cleanNumber(value);
+                            if (profitValue > 0) profitClass = 'text-green-600 font-semibold';
+                            else if (profitValue < 0) profitClass = 'text-red-600 font-semibold';
+                            else profitClass = 'text-yellow-600 font-semibold';
+                          }
+                          
+                          return <td key={metric.key} className={`px-2 py-2 text-right ${profitClass || 'text-black'}`}>{value}</td>;
                         })}
                       </tr>
                     </React.Fragment>
@@ -495,7 +539,17 @@ export default function RawDataTable() {
                     let value = grandTotals[metric.key];
                     if (metric.format) value = metric.format(value);
                     else value = value?.toLocaleString?.() ?? value;
-                    return <td key={metric.key} className={`px-2 py-2 text-right text-black`}>{value}</td>;
+                    
+                    // Add color coding for Profit column in grand total
+                    let profitClass = '';
+                    if (metric.key === 'Profit') {
+                      const profitValue = cleanNumber(value);
+                      if (profitValue > 0) profitClass = 'text-green-600 font-semibold';
+                      else if (profitValue < 0) profitClass = 'text-red-600 font-semibold';
+                      else profitClass = 'text-yellow-600 font-semibold';
+                    }
+                    
+                    return <td key={metric.key} className={`px-2 py-2 text-right ${profitClass || 'text-black'}`}>{value}</td>;
                   })}
                 </tr>
               </tbody>

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { fetchRawSheet } from '../utils/fetchRawSheet';
+import { fetchUnifiedData, getDailyData } from '../utils/unifiedData';
 import React from 'react';
 
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTZoM4CtqKHTAUAGLubLFG0-lsbhSrLLy7Y6qN_o62LlRcHsEHjOtDy6eyUYK0A5zCSAnA5hKwAfA7l/pub?gid=1225782318&single=true&output=csv";
@@ -154,9 +154,11 @@ export default function BudgetAnalysisTable() {
   }, [allAppNames.length]);
 
   useEffect(() => {
-    fetchRawSheet(CSV_URL)
+    fetchUnifiedData()
       .then((data) => {
-        setRows(data);
+        // Convert to daily data format
+        const dailyData = getDailyData(data);
+        setRows(dailyData);
         setLoading(false);
       })
       .catch((err) => {

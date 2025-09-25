@@ -17,14 +17,16 @@ import {
   CalendarDaysIcon,
   ArrowTrendingDownIcon,
   ClockIcon,
-  ChartPieIcon
+  ChartPieIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
-import { fetchPacingRaw } from '../../../utils/pacingraw';
-import type { PacingRawRow } from '../../../utils/pacingraw';
+import { fetchUnifiedData, getDailyData } from '../../../utils/unifiedData';
+import type { UnifiedDataRow } from '../../../utils/unifiedData';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
+import { InfoTooltip } from '../../../components/ui/Tooltip';
 import { cn } from '../../../lib/utils';
 
 const ALL_METRICS = [
@@ -78,12 +80,12 @@ const ALL_METRICS = [
 const DEFAULT_METRICS = ["installs", "install_rate", "cpi", "spend"];
 
 const sidebarItems = [
-  { name: "Overview", icon: HomeIcon, href: "/pacing/overview" },
-  { name: "App/Campaign Split", icon: Squares2X2Icon, href: "/pacing/app-campaign-split" },
-  { name: "Install Tracker", icon: ChartBarIcon, href: "/pacing/install-tracker" },
-  { name: "Budget Tracker", icon: CurrencyDollarIcon, href: "/pacing/budget-tracker" },
-  { name: "Yesterday vs. Day Before", icon: ArrowTrendingUpIcon, href: "/pacing/yesterday-vs-day-before" },
-  { name: "Ad Visibility", icon: EyeIcon, href: "/pacing/ad-visibility" },
+  { name: "Performance Snapshot", icon: HomeIcon, href: "/pacing/overview" },
+  { name: "Campaign Breakdown", icon: Squares2X2Icon, href: "/pacing/app-campaign-split" },
+  { name: "Installs Trend", icon: ChartBarIcon, href: "/pacing/install-tracker" },
+  { name: "Budget Pacing", icon: CurrencyDollarIcon, href: "/pacing/budget-tracker" },
+  { name: "Daily Changes", icon: ArrowTrendingUpIcon, href: "/pacing/yesterday-vs-day-before" },
+  { name: "Visibility Metrics", icon: EyeIcon, href: "/pacing/ad-visibility" },
 ];
 
 // Utility to clean and parse numbers (handles $ and commas)
@@ -113,7 +115,7 @@ export default function PacingOverview() {
   const [pendingMetrics, setPendingMetrics] = useState<string[]>(selectedMetrics);
   const [pendingApp, setPendingApp] = useState<string>(selectedApp);
   const [activeGraphMetrics, setActiveGraphMetrics] = useState<string[]>(DEFAULT_METRICS);
-  const [rawRows, setRawRows] = useState<PacingRawRow[]>([]);
+  const [rawRows, setRawRows] = useState<UnifiedDataRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allDates, setAllDates] = useState<string[]>([]);
@@ -146,12 +148,14 @@ export default function PacingOverview() {
   }, [showMetricsDropdown, showAppDropdown, showDateDropdown]);
 
   useEffect(() => {
-    fetchPacingRaw().then((data: PacingRawRow[]) => {
-      setRawRows(data);
-      const dates = Array.from(new Set(data.map((row: PacingRawRow) => String(row.Date)))).sort();
+    fetchUnifiedData().then((data: UnifiedDataRow[]) => {
+      // Convert to daily data for current performance tracking
+      const dailyData = getDailyData(data);
+      setRawRows(dailyData);
+      const dates = Array.from(new Set(dailyData.map((row: UnifiedDataRow) => String(row.Date)))).sort();
       // Filter dates to only include current month up to yesterday
       const availableDates = dates.filter(date => {
-        const dateObj = parse(date, 'dd/MM/yyyy', new Date());
+        const dateObj = parse(date, 'yyyy-MM-dd', new Date());
         return dateObj >= firstDayOfMonth && dateObj <= yesterday;
       });
       setAllDates(availableDates);
@@ -279,12 +283,15 @@ export default function PacingOverview() {
             className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
           >
             <div className="space-y-2">
-              <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Pacing Overview
-              </h1>
-              <p className="text-slate-400 text-lg">
-                Monitor your campaign performance and pacing metrics in real-time
-              </p>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                  Performance Snapshot
+                </h1>
+                <InfoTooltip 
+                  content="Today's installs, spend, and pacing at a glance."
+                  iconClassName="w-5 h-5 text-blue-400"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="gradient" size="lg" className="flex items-center gap-2">

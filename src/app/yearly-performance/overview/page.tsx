@@ -14,8 +14,8 @@ import {
   CheckIcon
 } from '@heroicons/react/24/outline';
 import { format, parse } from 'date-fns';
-import { fetchYearlyRaw } from '../../../utils/yearlyraw';
-import type { YearlyRawRow } from '../../../utils/yearlyraw';
+import { fetchUnifiedData, getMonthlyData, cleanNumber, computeTotalRatio } from '../../../utils/unifiedData';
+import type { UnifiedDataRow } from '../../../utils/unifiedData';
 
 const ALL_METRICS = [
   { key: "impressions", csvKey: "Imps", label: "Impressions", format: "NUMBER" },
@@ -36,19 +36,7 @@ const ALL_METRICS = [
 
 const DEFAULT_METRICS = ["installs", "install_rate", "cpi", "spend"];
 
-function cleanNumber(val: any): number {
-  if (typeof val !== 'string' && typeof val !== 'number') return 0;
-  let str = String(val).replace(/[$,]/g, '').trim();
-  if (str === '' || str === '#DIV/0!' || str === 'NaN' || str === 'null' || str === 'undefined') return 0;
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
-}
-
-function computeTotalRatio(rows: any[], numeratorKey: string, denominatorKey: string): number {
-  const numerator = rows.reduce((sum, row) => sum + cleanNumber(row[numeratorKey]), 0);
-  const denominator = rows.reduce((sum, row) => sum + cleanNumber(row[denominatorKey]), 0);
-  return denominator ? numerator / denominator : 0;
-}
+// cleanNumber and computeTotalRatio are imported from unifiedData utility
 
 function formatValue(value: any, format: string): string {
   if (value === undefined || value === null || value === '-') return '-';
@@ -204,7 +192,7 @@ function MetricsDropdown({ label, selectedMetrics, onChange, maxSelection = 4 }:
 }
 
 export default function YearlyPerformanceOverview() {
-  const [rawRows, setRawRows] = useState<YearlyRawRow[]>([]);
+  const [rawRows, setRawRows] = useState<UnifiedDataRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allMonths, setAllMonths] = useState<string[]>([]);
@@ -219,9 +207,11 @@ export default function YearlyPerformanceOverview() {
   }, [rawRows]);
 
   useEffect(() => {
-    fetchYearlyRaw().then((data: YearlyRawRow[]) => {
-      setRawRows(data);
-      const months = Array.from(new Set(data.map(row => String(row["Month"])))).sort();
+    fetchUnifiedData().then((data: UnifiedDataRow[]) => {
+      // Convert to monthly data for trends analysis
+      const monthlyData = getMonthlyData(data);
+      setRawRows(monthlyData);
+      const months = Array.from(new Set(monthlyData.map(row => String(row["Month"])))).sort();
       setAllMonths(months);
       if (months.length > 0) {
         setDateRange({ start: months[0], end: months[months.length - 1] });
@@ -335,8 +325,8 @@ export default function YearlyPerformanceOverview() {
               <ChartBarIcon className="h-8 w-8 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Yearly Performance Overview</h1>
-              <p className="text-slate-300 mt-1">Comprehensive analytics and trends across all metrics</p>
+              <h1 className="text-3xl font-bold text-white">Performance Snapshot</h1>
+              <p className="text-slate-300 mt-1">Highlights of yearly installs, spend, and ROAS trends.</p>
             </div>
           </div>
           

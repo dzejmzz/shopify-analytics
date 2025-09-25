@@ -120,8 +120,8 @@ export default function AdVisibilityPage() {
               <EyeIcon className="h-8 w-8 text-green-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Ad Visibility</h1>
-              <p className="text-slate-300 mt-1">Track ad visibility percentages across campaigns and dates</p>
+              <h1 className="text-3xl font-bold text-white">Visibility Metrics</h1>
+              <p className="text-slate-300 mt-1">Check ad impressions and share of visibility.</p>
             </div>
           </div>
           

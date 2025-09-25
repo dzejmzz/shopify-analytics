@@ -57,8 +57,8 @@ export default function InstallsPacePage() {
               <ChartBarIcon className="h-8 w-8 text-green-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Install Tracker</h1>
-              <p className="text-slate-300 mt-1">Monitor app installation performance and pacing targets</p>
+              <h1 className="text-3xl font-bold text-white">Installs Trend</h1>
+              <p className="text-slate-300 mt-1">Track installs day by day against targets.</p>
             </div>
           </div>
           

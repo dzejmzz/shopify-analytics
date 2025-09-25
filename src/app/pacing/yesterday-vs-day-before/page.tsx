@@ -59,8 +59,8 @@ export default function YesterdayVsDayBeforePage() {
               <ArrowTrendingUpIcon className="h-8 w-8 text-orange-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Yesterday vs Day Before</h1>
-              <p className="text-slate-300 mt-1">Compare daily performance metrics to identify trends and changes</p>
+              <h1 className="text-3xl font-bold text-white">Daily Changes</h1>
+              <p className="text-slate-300 mt-1">See differences between any two days.</p>
             </div>
           </div>
           

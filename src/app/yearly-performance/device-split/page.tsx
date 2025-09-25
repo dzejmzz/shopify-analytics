@@ -4,8 +4,8 @@ import { motion } from "framer-motion";
 import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
 import { format, parse } from 'date-fns';
-import { fetchYearlyRaw } from '../../../utils/yearlyraw';
-import type { YearlyRawRow } from '../../../utils/yearlyraw';
+import { fetchUnifiedData, getMonthlyData, cleanNumber, computeTotalRatio } from '../../../utils/unifiedData';
+import type { UnifiedDataRow } from '../../../utils/unifiedData';
 import AIRecommendations from '../../../components/AIRecommendations';
 import Link from 'next/link';
 import {
@@ -51,19 +51,9 @@ const sidebarItems = [
   { name: "Device Split", icon: Squares2X2Icon, href: "/yearly-performance/device-split", active: true },
 ];
 
-function cleanNumber(val: any) {
-  if (typeof val !== 'string' && typeof val !== 'number') return 0;
-  let str = String(val).replace(/[$,]/g, '').trim();
-  if (str === '' || str === '#DIV/0!' || str === 'NaN' || str === 'null' || str === 'undefined') return 0;
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
-}
+// cleanNumber is imported from unifiedData utility
 
-function computeTotalRatio(rows: any[], numeratorKey: string, denominatorKey: string) {
-  const numerator = rows.reduce((sum, row) => sum + cleanNumber(row[numeratorKey]), 0);
-  const denominator = rows.reduce((sum, row) => sum + cleanNumber(row[denominatorKey]), 0);
-  return denominator ? numerator / denominator : null;
-}
+// computeTotalRatio is imported from unifiedData utility
 
 interface DropdownProps {
   label: string;
@@ -129,7 +119,7 @@ function DeviceIcon({ device }: { device: string }) {
 }
 
 export default function DeviceSplit() {
-  const [rawRows, setRawRows] = useState<YearlyRawRow[]>([]);
+  const [rawRows, setRawRows] = useState<UnifiedDataRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -163,8 +153,10 @@ export default function DeviceSplit() {
   }, [allDates]);
 
   useEffect(() => {
-    fetchYearlyRaw().then((data: YearlyRawRow[]) => {
-      setRawRows(data);
+    fetchUnifiedData().then((data: UnifiedDataRow[]) => {
+      // Convert to monthly data for trends analysis
+      const monthlyData = getMonthlyData(data);
+      setRawRows(monthlyData);
       setLoading(false);
     }).catch((error) => {
       setError('Failed to fetch data');
@@ -378,8 +370,8 @@ export default function DeviceSplit() {
                   <Squares2X2Icon className="h-8 w-8 text-blue-400" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">Device Split</h1>
-                  <p className="text-slate-300 mt-1">Performance breakdown by device type</p>
+                  <h1 className="text-3xl font-bold text-white">Device Performance</h1>
+                  <p className="text-slate-300 mt-1">Break down performance by device type.</p>
                 </div>
               </div>
               
